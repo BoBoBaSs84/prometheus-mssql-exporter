@@ -39,7 +39,7 @@
   "dependencies": {
     "debug": "4.3.4",
     "express": "4.17.3",
-    "prom-client": "9.1.1",
+    "prom-client": "15.1.3",
     "tedious": "14.3.0"
   },
   "devDependencies": {
