@@ -22,9 +22,7 @@ const mssql_product_version = {
   metrics: {
     mssql_product_version: new client.Gauge({ name: "mssql_product_version", help: "Instance version (Major.Minor)" }),
   },
-  query: `SELECT CONVERT(VARCHAR(128), SERVERPROPERTY ('productversion')) AS ProductVersion,
-  SERVERPROPERTY('ProductVersion') AS ProductVersion
-`,
+  query: `SELECT CONVERT(VARCHAR(128), SERVERPROPERTY('productversion')) AS [ProductVersion];`,
   collect: (rows, metrics) => {
     let v = productVersionParse(rows[0][0].value);
     const mssql_product_version = v.major + "." + v.minor;
@@ -37,7 +35,7 @@ const mssql_instance_local_time = {
   metrics: {
     mssql_instance_local_time: new client.Gauge({ name: "mssql_instance_local_time", help: "Number of seconds since epoch on local instance" }),
   },
-  query: `SELECT DATEDIFF(second, '19700101', GETUTCDATE())`,
+  query: `SELECT DATEDIFF(SECOND, '19700101', GETUTCDATE()) AS [instance_local_time];`,
   collect: (rows, metrics) => {
     const mssql_instance_local_time = rows[0][0].value;
     metricsLog("Fetched current time", mssql_instance_local_time);
@@ -49,10 +47,7 @@ const mssql_connections = {
   metrics: {
     mssql_connections: new client.Gauge({ name: "mssql_connections", help: "Number of active connections", labelNames: ["database", "state"] }),
   },
-  query: `SELECT DB_NAME(sP.dbid)
-        , COUNT(sP.spid)
-FROM sys.sysprocesses sP
-GROUP BY DB_NAME(sP.dbid)`,
+  query: `SELECT DB_NAME([sp].[dbid]), COUNT([sp].[spid]) FROM [sys].[sysprocesses] AS [sp] GROUP BY DB_NAME([sp].[dbid]);`,
   collect: (rows, metrics) => {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -72,11 +67,15 @@ const mssql_client_connections = {
       labelNames: ["client", "database"],
     }),
   },
-  query: `SELECT host_name, DB_NAME(dbid) dbname, COUNT(*) session_count
-FROM sys.dm_exec_sessions a
-LEFT JOIN sysprocesses b on a.session_id=b.spid
-WHERE is_user_process=1
-GROUP BY host_name, dbid`,
+  query: `SELECT host_name AS [host_name]
+	 , DB_NAME([s].[dbid]) AS [dbname]
+	 , COUNT(*) AS [session_count]
+FROM [sys].[dm_exec_sessions] AS [des]
+LEFT JOIN [sys].[sysprocesses] AS [s]
+	ON [des].[session_id] = [s].[spid]
+WHERE [des].[is_user_process] = 1
+GROUP BY [host_name]
+	   , [s].[dbid];`,
   collect: (rows, metrics) => {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -142,7 +141,7 @@ const mssql_database_state = {
       labelNames: ["database"],
     }),
   },
-  query: `SELECT name,state FROM master.sys.databases`,
+  query: `SELECT [d].[name], [d].[state] FROM [master].[sys].[databases] AS [d];`,
   collect: (rows, metrics) => {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -162,9 +161,11 @@ const mssql_log_growths = {
       labelNames: ["database"],
     }),
   },
-  query: `SELECT rtrim(instance_name), cntr_value
-FROM sys.dm_os_performance_counters 
-WHERE counter_name = 'Log Growths' and instance_name <> '_Total'`,
+  query: `SELECT RTRIM([dopc].[instance_name]) AS [instance_name]
+	 , [dopc].[cntr_value]
+FROM [sys].[dm_os_performance_counters] AS [dopc]
+WHERE [dopc].[counter_name] = 'Log Growths'
+	AND [dopc].[instance_name] <> '_Total';`,
   collect: (rows, metrics) => {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -184,7 +185,12 @@ const mssql_database_filesize = {
       labelNames: ["database", "logicalname", "type", "filename"],
     }),
   },
-  query: `SELECT DB_NAME(database_id) AS database_name, name AS logical_name, type, physical_name, (size * CAST(8 AS BIGINT)) size_kb FROM sys.master_files`,
+  query: `SELECT DB_NAME([mf].[database_id]) AS [database_name]
+	 , [mf].[name] AS [logical_name]
+	 , [mf].[type]
+	 , [mf].[physical_name]
+	 , ([mf].[size] * CAST(8 AS BIGINT)) size_kb
+FROM [sys].[master_files] AS [mf];`,
   collect: (rows, metrics) => {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -203,7 +209,7 @@ const mssql_database_filesize = {
         "filename",
         filename,
         "size",
-        mssql_database_filesize
+        mssql_database_filesize,
       );
       metrics.mssql_database_filesize.set({ database, logicalname, type, filename }, mssql_database_filesize);
     }
