@@ -42,7 +42,7 @@ describe("E2E Test", function () {
       });
 
     // bulk ensure that all expected results of a vanilla mssql server instance are here
-    expect(Object.keys(lines)).toContain([
+    expect(Object.keys(lines)).toBe([
       "mssql_up",
       "mssql_product_version",
       "mssql_instance_local_time",
