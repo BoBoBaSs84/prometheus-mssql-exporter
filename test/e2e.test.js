@@ -39,6 +39,22 @@ describe("E2E Test", function () {
         });
     });
 
+    // lets ensure that there is at least one instance of these 2022 entries (that differ from 2019)
+    const v2022 = ['mssql_log_growths{database="model_msdb"}',
+      'mssql_log_growths{database="model_replicatedmaster"}',
+      'mssql_transactions{database="model_msdb"}',
+      'mssql_transactions{database="model_replicatedmaster"}'];
+    v2022.forEach((k2022) => {
+      const keys = Object.keys(lines);
+      const i = keys.findIndex((key) => key.startsWith(k2022));
+      expect(i).toBeGreaterThanOrEqual(0);
+      keys
+        .filter((key) => key.startsWith(k2022))
+        .forEach((key) => {
+          delete lines[key];
+        });
+    });
+
     // bulk ensure that all expected results of a vanilla mssql server instance are here
     expect(Object.keys(lines)).toEqual([
       "mssql_up",
