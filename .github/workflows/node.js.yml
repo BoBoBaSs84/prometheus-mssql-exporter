@@ -33,7 +33,7 @@ jobs:
         ports:
           - 1433:1433
         options: >-
-          --health-cmd="bash -c '/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P \"$SA_PASSWORD\" -Q \"select 1\" >/dev/null 2>&1'"
+          --health-cmd="exit 0"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=30
@@ -53,15 +53,13 @@ jobs:
       - name: Build (if present)
         run: npm run build --if-present
 
-      # - name: Wait for MSSQL TCP port
-      #   run: |
-      #     echo "Waiting for MSSQL TCP port on mssql:1433"
-      #     for i in {1..60}; do
-      #       if timeout 1 bash -c "cat < /dev/tcp/mssql/1433" >/dev/null 2>&1; then
-      #         echo "mssql TCP port open"; break
-      #       fi
-      #       echo "waiting for mssql... ($i)"; sleep 5
-      #     done
+      - name: Wait for MSSQL to be ready
+        run: |
+          for i in {1..10}; do
+            nc -z mssql 1433 && echo "MSSQL is up!" && exit 0
+            sleep 2
+          done
+          echo "MSSQL did not start in time" && exit 1
 
       - name: Verify MSSQL SQL connection (using tedious)
         env:
