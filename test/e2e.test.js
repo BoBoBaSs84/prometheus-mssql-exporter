@@ -21,7 +21,8 @@ describe("E2E Test", function () {
 
     // some specific tests
     expect(lines.mssql_up).toBe(1);
-    expect([14, 15]).toContain(lines.mssql_product_version);
+    // we want to ensure that the version is 14, 15 or 16 (2017, 2019 or 2022)
+    expect([14, 15, 16]).toContain(lines.mssql_product_version);
     expect(lines.mssql_instance_local_time).toBeGreaterThan(0);
     expect(lines.mssql_total_physical_memory_kb).toBeGreaterThan(0);
 
