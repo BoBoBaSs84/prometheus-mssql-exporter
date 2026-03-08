@@ -65,7 +65,7 @@ jobs:
         env:
           SA_PASSWORD: ${{ secrets.SA_PASSWORD }}
         run: |
-          node -e "const { Connection } = require('tedious'); const config={server:'mssql',authentication:{type:'default',options:{userName:'SA',password:process.env.SA_PASSWORD}},options:{encrypt:false,trustServerCertificate:true,connectTimeout:15000}}; const conn=new Connection(config); conn.on('connect', err=>{ if(err){ console.error('connection error',err.message||err); process.exit(1);} else{ console.log('connected to mssql'); process.exit(0);} }); conn.connect();"
+          node -e "const { Connection } = require('tedious'); const config={server:'localhost',authentication:{type:'default',options:{userName:'SA',password:process.env.SA_PASSWORD}},options:{encrypt:false,trustServerCertificate:true,connectTimeout:15000}}; const conn=new Connection(config); conn.on('connect', err=>{ if(err){ console.error('connection error',err.message||err); process.exit(1);} else{ console.log('connected to mssql'); process.exit(0);} }); conn.connect();"
 
       - name: Start exporter (background)
         env:
