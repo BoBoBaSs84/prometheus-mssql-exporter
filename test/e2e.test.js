@@ -13,38 +13,15 @@ function parse(text) {
   return o;
 }
 
+function productVersionParse(value) {
+  if (value == null) return null;
+  const s = String(value).trim();
+  if (/^\d+$/.test(s)) return { major: parseInt(s, 10), minor: 0, patch: 0, raw: s };
+  const parts = s.split(/[\.\-\+]/).map((p) => { const n = parseInt(p, 10); return Number.isNaN(n) ? 0 : n; });
+  return { major: parts[0] || 0, minor: parts[1] || 0, patch: parts[2] || 0, raw: s };
+}
+
 describe("E2E Test", function () {
-  let productMajorVersion = null;
-
-  beforeAll(async () => {
-    const server = process.env.SERVER || "localhost";
-    const password = process.env.SA_PASSWORD || process.env.PASSWORD || null;
-    if (!password) return;
-
-    productMajorVersion = await new Promise((resolve) => {
-      const config = {
-        server,
-        authentication: { type: "default", options: { userName: "SA", password } },
-        options: { encrypt: false, trustServerCertificate: true, port: 1433, connectTimeout: 15000 },
-      };
-      const conn = new Connection(config);
-      conn.on("connect", (err) => {
-        if (err) return resolve(null);
-        const req = new Request("SELECT CONVERT(INT, SERVERPROPERTY('ProductMajorVersion')) AS major", (err) => {
-          if (err) return resolve(null);
-        });
-        req.on("row", (cols) => {
-          const val = cols[0] && cols[0].value ? parseInt(cols[0].value, 10) : null;
-          resolve(val);
-        });
-        conn.execSql(req);
-      });
-      conn.connect();
-      // safety timeout
-      setTimeout(() => resolve(null), 20000);
-    });
-  });
-
   it("Fetch all metrics and ensure that all expected are present", async function () {
     const data = await request.get("http://localhost:4000/metrics");
     expect(data.status).toBe(200);
@@ -54,19 +31,15 @@ describe("E2E Test", function () {
     // some specific tests
     expect(lines.mssql_up).toBe(1);
     // prefer the detected SQL Server major version when available
-    if (productMajorVersion) {
-      expect([productMajorVersion]).toContain(lines.mssql_product_version);
-    } else {
-      // fallback: ensure that the version is 14, 15 or 16 (2017, 2019 or 2022)
-      expect([14, 15, 16]).toContain(lines.mssql_product_version);
-    }
+    // ensure that the version is 14, 15 or 16 (2017, 2019 or 2022)
+    expect([14, 15, 16]).toContain(lines.mssql_product_version);
     expect(lines.mssql_instance_local_time).toBeGreaterThan(0);
     expect(lines.mssql_total_physical_memory_kb).toBeGreaterThan(0);
 
-    const v = { major: productMajorVersion || lines.mssql_product_version };
+    const version = productVersionParse(lines.mssql_product_version);
 
     // check if the sql server version is 2022 (16)
-    if (v.major === 16) {
+    if (version && version.major === 16) {
       // lets ensure that there is at least one instance of these 2022 entries (that differ from 2019)
       const v2022 = [
         'mssql_log_growths{database="model_msdb"}',
@@ -87,7 +60,7 @@ describe("E2E Test", function () {
     }
 
     // check if the sql server version is 2019 (15)
-    if (v.major === 15) {
+    if (version && version.major === 15) {
       // lets ensure that there is at least one instance of these 2019 entries (that differ from 2017)
       const v2019 = ["mssql_client_connections", "mssql_database_filesize"];
       v2019.forEach((k2019) => {
