@@ -26,34 +26,42 @@ describe("E2E Test", function () {
     expect(lines.mssql_instance_local_time).toBeGreaterThan(0);
     expect(lines.mssql_total_physical_memory_kb).toBeGreaterThan(0);
 
-    // lets ensure that there is at least one instance of these 2022 entries (that differ from 2019)
-    const v2022 = ['mssql_log_growths{database="model_msdb"}',
-      'mssql_log_growths{database="model_replicatedmaster"}',
-      'mssql_transactions{database="model_msdb"}',
-      'mssql_transactions{database="model_replicatedmaster"}'];
-    v2022.forEach((k2022) => {
-      const keys = Object.keys(lines);
-      const i = keys.findIndex((key) => key.startsWith(k2022));
-      expect(i).toBeGreaterThanOrEqual(0);
-      keys
-        .filter((key) => key.startsWith(k2022))
-        .forEach((key) => {
-          delete lines[key];
-        });
-    });
+    // check if the sql server version is 2022(16)
+    if (lines.mssql_product_version.startsWith("16")) {
+      // lets ensure that there is at least one instance of these 2022 entries (that differ from 2019)
+      const v2022 = [
+        'mssql_log_growths{database="model_msdb"}',
+        'mssql_log_growths{database="model_replicatedmaster"}',
+        'mssql_transactions{database="model_msdb"}',
+        'mssql_transactions{database="model_replicatedmaster"}',
+      ];
+      v2022.forEach((k2022) => {
+        const keys = Object.keys(lines);
+        const i = keys.findIndex((key) => key.startsWith(k2022));
+        expect(i).toBeGreaterThanOrEqual(0);
+        keys
+          .filter((key) => key.startsWith(k2022))
+          .forEach((key) => {
+            delete lines[key];
+          });
+      });
+    }
 
-    // lets ensure that there is at least one instance of these 2019 entries (that differ from 2017)
-    const v2019 = ["mssql_client_connections", "mssql_database_filesize"];
-    v2019.forEach((k2019) => {
-      const keys = Object.keys(lines);
-      const i = keys.findIndex((key) => key.startsWith(k2019));
-      expect(i).toBeGreaterThanOrEqual(0);
-      keys
-        .filter((key) => key.startsWith(k2019))
-        .forEach((key) => {
-          delete lines[key];
-        });
-    });
+    //  check if the sql server version is 2019(15),
+    if (lines.mssql_product_version.startsWith("15")) {
+      // lets ensure that there is at least one instance of these 2019 entries (that differ from 2017)
+      const v2019 = ["mssql_client_connections", "mssql_database_filesize"];
+      v2019.forEach((k2019) => {
+        const keys = Object.keys(lines);
+        const i = keys.findIndex((key) => key.startsWith(k2019));
+        expect(i).toBeGreaterThanOrEqual(0);
+        keys
+          .filter((key) => key.startsWith(k2019))
+          .forEach((key) => {
+            delete lines[key];
+          });
+      });
+    }
 
     // bulk ensure that all expected results of a vanilla mssql server instance are here
     expect(Object.keys(lines)).toEqual([
