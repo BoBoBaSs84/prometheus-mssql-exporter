@@ -12,6 +12,18 @@ function parse(text) {
   return o;
 }
 
+const productVersionParse = (version) => {
+  const pattern = /^([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)$/;
+  const match = version.match(pattern);
+  if (!match) throw new Error("Invalid product version " + version);
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+    build: Number(match[4]),
+  };
+};
+
 describe("E2E Test", function () {
   it("Fetch all metrics and ensure that all expected are present", async function () {
     const data = await request.get("http://localhost:4000/metrics");
@@ -26,8 +38,10 @@ describe("E2E Test", function () {
     expect(lines.mssql_instance_local_time).toBeGreaterThan(0);
     expect(lines.mssql_total_physical_memory_kb).toBeGreaterThan(0);
 
+    let v = productVersionParse(lines.mssql_product_version);
+
     // check if the sql server version is 2022(16)
-    if (lines.mssql_product_version.startsWith("16")) {
+    if (v.major === 16) {
       // lets ensure that there is at least one instance of these 2022 entries (that differ from 2019)
       const v2022 = [
         'mssql_log_growths{database="model_msdb"}',
@@ -48,7 +62,7 @@ describe("E2E Test", function () {
     }
 
     //  check if the sql server version is 2019(15),
-    if (lines.mssql_product_version.startsWith("15")) {
+    if (v.major === 15) {
       // lets ensure that there is at least one instance of these 2019 entries (that differ from 2017)
       const v2019 = ["mssql_client_connections", "mssql_database_filesize"];
       v2019.forEach((k2019) => {
