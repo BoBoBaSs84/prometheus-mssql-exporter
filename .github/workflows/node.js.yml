@@ -53,15 +53,15 @@ jobs:
       - name: Build (if present)
         run: npm run build --if-present
 
-      - name: Wait for MSSQL TCP port
-        run: |
-          echo "Waiting for MSSQL TCP port on mssql:1433"
-          for i in {1..60}; do
-            if timeout 1 bash -c "cat < /dev/tcp/mssql/1433" >/dev/null 2>&1; then
-              echo "mssql TCP port open"; break
-            fi
-            echo "waiting for mssql... ($i)"; sleep 5
-          done
+      # - name: Wait for MSSQL TCP port
+      #   run: |
+      #     echo "Waiting for MSSQL TCP port on mssql:1433"
+      #     for i in {1..60}; do
+      #       if timeout 1 bash -c "cat < /dev/tcp/mssql/1433" >/dev/null 2>&1; then
+      #         echo "mssql TCP port open"; break
+      #       fi
+      #       echo "waiting for mssql... ($i)"; sleep 5
+      #     done
 
       - name: Verify MSSQL SQL connection (using tedious)
         env:
