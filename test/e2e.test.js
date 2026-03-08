@@ -26,19 +26,6 @@ describe("E2E Test", function () {
     expect(lines.mssql_instance_local_time).toBeGreaterThan(0);
     expect(lines.mssql_total_physical_memory_kb).toBeGreaterThan(0);
 
-    // lets ensure that there is at least one instance of these 2019 entries (that differ from 2017)
-    const v2019 = ["mssql_client_connections", "mssql_database_filesize"];
-    v2019.forEach((k2019) => {
-      const keys = Object.keys(lines);
-      const i = keys.findIndex((key) => key.startsWith(k2019));
-      expect(i).toBeGreaterThanOrEqual(0);
-      keys
-        .filter((key) => key.startsWith(k2019))
-        .forEach((key) => {
-          delete lines[key];
-        });
-    });
-
     // lets ensure that there is at least one instance of these 2022 entries (that differ from 2019)
     const v2022 = ['mssql_log_growths{database="model_msdb"}',
       'mssql_log_growths{database="model_replicatedmaster"}',
@@ -50,6 +37,19 @@ describe("E2E Test", function () {
       expect(i).toBeGreaterThanOrEqual(0);
       keys
         .filter((key) => key.startsWith(k2022))
+        .forEach((key) => {
+          delete lines[key];
+        });
+    });
+
+    // lets ensure that there is at least one instance of these 2019 entries (that differ from 2017)
+    const v2019 = ["mssql_client_connections", "mssql_database_filesize"];
+    v2019.forEach((k2019) => {
+      const keys = Object.keys(lines);
+      const i = keys.findIndex((key) => key.startsWith(k2019));
+      expect(i).toBeGreaterThanOrEqual(0);
+      keys
+        .filter((key) => key.startsWith(k2019))
         .forEach((key) => {
           delete lines[key];
         });
