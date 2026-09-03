@@ -64,7 +64,7 @@ describe("server", () => {
     expect(res.text).toMatch(/^mssql_up 0$/m);
   });
 
-  it("keeps scraping when a single collector query fails", async () => {
+  it("keeps scraping when a single collector query fails and records collector success", async () => {
     const connection = okConnection();
     const app = createApp(config, {
       connect: async () => connection,
@@ -78,6 +78,50 @@ describe("server", () => {
 
     expect(res.status).toBe(200);
     expect(res.text).toMatch(/^mssql_up 1$/m);
+    expect(res.text).toMatch(/^mssql_scrape_duration_seconds /m);
+    expect(res.text).toMatch(/^mssql_collector_success\{collector="mssql_up"\} 1$/m);
+    expect(res.text).toMatch(/^mssql_collector_success\{collector="mssql_io_stall"\} 0$/m);
     expect(connection.close).toHaveBeenCalledOnce();
+  });
+
+  it("passes the configured query timeout to runQuery", async () => {
+    const runQuery = vi.fn(async () => []);
+    const app = createApp({ ...config, queryTimeoutMs: 1234 }, { connect: async () => okConnection(), runQuery });
+
+    await request(app).get("/metrics");
+
+    expect(runQuery).toHaveBeenCalled();
+    expect(runQuery.mock.calls.every(([, , timeout]) => timeout === 1234)).toBe(true);
+  });
+
+  describe("/probe", () => {
+    it("400s without a valid target", async () => {
+      const app = createApp(config, { connect: vi.fn(), runQuery: vi.fn() });
+      expect((await request(app).get("/probe")).status).toBe(400);
+      expect((await request(app).get("/probe?target=bad target!")).status).toBe(400);
+    });
+
+    it("connects to the requested target and returns an isolated registry", async () => {
+      const seen = [];
+      const app = createApp(config, {
+        connect: async (cfg) => {
+          seen.push([cfg.connect.server, cfg.connect.options.port]);
+          return okConnection();
+        },
+        runQuery: async (_c, sql) => (sql === "SELECT 1" ? [[{ value: 1 }]] : []),
+      });
+
+      const res = await request(app).get("/probe?target=other-host:1444");
+
+      expect(res.status).toBe(200);
+      expect(seen).toContainEqual(["other-host", 1444]);
+      expect(res.text).toMatch(/^mssql_up 1$/m);
+      expect(res.text).not.toMatch(/^process_/m);
+    });
+
+    it("can be disabled", async () => {
+      const app = createApp({ ...config, probeEnabled: false }, { connect: vi.fn(), runQuery: vi.fn() });
+      expect((await request(app).get("/probe?target=host")).status).toBe(404);
+    });
   });
 });
