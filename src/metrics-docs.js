@@ -1,25 +1,21 @@
-import { entries } from "./metrics.js";
+import { collectors } from "./metrics.js";
 
 // DOCUMENTATION of queries and their associated metrics (targeted to DBAs)
-Object.entries(entries).forEach(([entryName, entry]) => {
-  console.log("--[", entryName, "]");
-  for (const key in entry.metrics) {
-    if (Object.hasOwn(entry.metrics, key)) {
-      console.log("--", entry.metrics[key].name, entry.metrics[key].help);
-    }
+for (const collector of collectors) {
+  console.log("--[", collector.name, collector.optional ? "(optional)" : "", "]");
+  for (const [key, spec] of Object.entries(collector.gauges)) {
+    console.log("--", spec.name ?? key, spec.help);
   }
-  console.log(entry.query + ";");
+  console.log(collector.query.trim().replace(/;\s*$/, "") + ";");
   console.log("");
-});
+}
 
 console.log("/*");
-Object.values(entries).forEach((entry) => {
-  for (const key in entry.metrics) {
-    if (Object.hasOwn(entry.metrics, key)) {
-      const metric = entry.metrics[key];
-      const labels = metric.labelNames.length > 0 ? "{" + metric.labelNames + "}" : "";
-      console.log("-", metric.name + labels, metric.help);
-    }
+for (const collector of collectors) {
+  for (const [key, spec] of Object.entries(collector.gauges)) {
+    const name = spec.name ?? key;
+    const labels = spec.labelNames?.length ? "{" + spec.labelNames + "}" : "";
+    console.log("-", name + labels, spec.help);
   }
-});
+}
 console.log("*/");

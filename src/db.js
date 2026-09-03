@@ -66,9 +66,10 @@ export const coerceRow = (row) => {
  *
  * @param {import("tedious").Connection} connection
  * @param {string} sql
+ * @param {number} [timeoutMs] per-request timeout; 0 disables it
  * @returns {Promise<Array>}
  */
-export function runQuery(connection, sql) {
+export function runQuery(connection, sql, timeoutMs = 0) {
   return new Promise((resolve, reject) => {
     const request = new Request(sql, (error, _rowCount, rows) => {
       if (error) {
@@ -77,6 +78,9 @@ export function runQuery(connection, sql) {
         resolve((rows || []).map(coerceRow));
       }
     });
+    if (timeoutMs > 0) {
+      request.setTimeout(timeoutMs);
+    }
     connection.execSql(request);
   });
 }

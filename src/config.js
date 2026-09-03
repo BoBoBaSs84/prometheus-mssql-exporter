@@ -20,6 +20,8 @@ const parseIntOr = (value, fallback) => {
  *   connect: import("tedious").ConnectionConfiguration,
  *   port: number,
  *   collectDefaultMetrics: boolean,
+ *   queryTimeoutMs: number,
+ *   probeEnabled: boolean,
  * }}
  */
 export function loadConfig(env = process.env) {
@@ -42,10 +44,13 @@ export function loadConfig(env = process.env) {
         port: parseIntOr(env.PORT, 1433),
         encrypt: parseBool(env.ENCRYPT, true),
         trustServerCertificate: parseBool(env.TRUST_SERVER_CERTIFICATE, true),
+        connectTimeout: parseIntOr(env.CONNECT_TIMEOUT_MS, 15000),
         rowCollectionOnRequestCompletion: true,
       },
     },
     port: parseIntOr(env.EXPOSE, 4000),
     collectDefaultMetrics: parseBool(env.COLLECT_DEFAULT_METRICS, true),
+    queryTimeoutMs: parseIntOr(env.QUERY_TIMEOUT_MS, 30000),
+    probeEnabled: parseBool(env.PROBE_ENABLED, true),
   };
 }

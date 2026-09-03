@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
+import client from "prom-client";
 
-import { entries } from "../../src/metrics.js";
+import { entries, collectors, buildEntries } from "../../src/metrics.js";
 import { fixtures } from "../fixtures/rows.js";
 
 const resetEntry = (entry) => Object.values(entry.metrics).forEach((metric) => metric.reset());
@@ -80,5 +81,73 @@ describe("collectors", () => {
     const entry = entries.mssql_connections;
     resetEntry(entry);
     expect(() => entry.collect([], entry.metrics)).not.toThrow();
+  });
+
+  it("mssql_memory_manager converts KB counters to bytes", async () => {
+    const metrics = collect("mssql_memory_manager");
+    expect(await valueOf(metrics.mssql_total_server_memory_bytes)).toBe(1_500_000 * 1024);
+    expect(await valueOf(metrics.mssql_memory_grants_pending)).toBe(0);
+    expect(await valueOf(metrics.mssql_memory_grants_outstanding)).toBe(3);
+  });
+
+  it("mssql_cache_hit_ratio computes ratio/base percentages", async () => {
+    const metrics = collect("mssql_cache_hit_ratio");
+    expect(await valueOf(metrics.mssql_buffer_cache_hit_ratio)).toBe(99);
+    expect(await valueOf(metrics.mssql_plan_cache_hit_ratio)).toBe(90);
+  });
+
+  it("mssql_access_methods maps each counter to its gauge", async () => {
+    const metrics = collect("mssql_access_methods");
+    expect(await valueOf(metrics.mssql_page_splits_total)).toBe(9);
+    expect(await valueOf(metrics.mssql_forwarded_records_total)).toBe(2);
+  });
+
+  it("mssql_activity reads the single aggregate row", async () => {
+    const metrics = collect("mssql_activity");
+    expect(await valueOf(metrics.mssql_blocked_sessions)).toBe(2);
+    expect(await valueOf(metrics.mssql_oldest_active_transaction_seconds)).toBe(30);
+  });
+
+  it("mssql_wait_stats labels by wait_type", async () => {
+    const metrics = collect("mssql_wait_stats");
+    expect(await valueOf(metrics.mssql_wait_time_ms, { wait_type: "PAGEIOLATCH_SH" })).toBe(5000);
+    expect(await valueOf(metrics.mssql_signal_wait_time_ms, { wait_type: "LCK_M_X" })).toBe(60);
+  });
+
+  it("mssql_log_space converts MB to bytes", async () => {
+    const metrics = collect("mssql_log_space");
+    expect(await valueOf(metrics.mssql_database_log_size_bytes, { database: "master" })).toBe(8 * 1024 * 1024);
+    expect(await valueOf(metrics.mssql_database_log_used_percent, { database: "master" })).toBe(12.5);
+  });
+
+  it("mssql_backups reports -1 age and 0 timestamp when a backup type was never taken", async () => {
+    const metrics = collect("mssql_backups");
+    expect(await valueOf(metrics.mssql_database_backup_age_seconds, { database: "master", type: "full" })).toBe(3600);
+    expect(await valueOf(metrics.mssql_database_backup_age_seconds, { database: "master", type: "diff" })).toBe(-1);
+    expect(await valueOf(metrics.mssql_database_last_backup_timestamp, { database: "master", type: "log" })).toBe(0);
+  });
+
+  it("optional collectors are flagged", () => {
+    const optional = collectors.filter((c) => c.optional).map((c) => c.name);
+    expect(optional).toEqual(["mssql_hadr_replica", "mssql_hadr_database", "mssql_agent_up", "mssql_agent_jobs"]);
+  });
+
+  it("every collector declares a non-empty query and at least one gauge", () => {
+    for (const collector of collectors) {
+      expect(collector.query, collector.name).toBeTruthy();
+      expect(Object.keys(collector.gauges).length, collector.name).toBeGreaterThan(0);
+    }
+  });
+
+  it("buildEntries binds gauges to the given registry, isolated from the default one", async () => {
+    const registry = new client.Registry();
+    const isolated = buildEntries(registry);
+
+    isolated.mssql_up.collect(fixtures.mssql_up, isolated.mssql_up.metrics);
+    entries.mssql_up.metrics.mssql_up.set(0);
+
+    expect(await valueOf(isolated.mssql_up.metrics.mssql_up)).toBe(1);
+    expect(await valueOf(entries.mssql_up.metrics.mssql_up)).toBe(0);
+    expect(registry.getSingleMetric("mssql_scrape_duration_seconds")).toBeUndefined();
   });
 });

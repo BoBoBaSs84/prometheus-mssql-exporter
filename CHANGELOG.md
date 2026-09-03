@@ -1,5 +1,39 @@
 # Changelog
 
+## 2.1.0
+
+Additive release — no breaking changes, `/metrics` remains backward compatible.
+
+### Added
+
+- ~60 new `mssql_*` metric families: SQL-engine memory (target/total server memory,
+  memory grants pending, workspace memory, cache hit ratios), throughput counters
+  (compilations, page splits, scans, lock/latch waits), live activity (blocked
+  sessions, longest-running request, oldest transaction), top-25 wait statistics,
+  transaction-log space + VLF counts, volume free space, per-database backup age and
+  properties, suspect pages, a curated `sys.configurations` subset, Always On AG
+  health, and SQL Agent job outcomes.
+- Scrape-quality metrics: `mssql_scrape_duration_seconds`,
+  `mssql_collector_duration_seconds{collector}`, `mssql_collector_success{collector}`.
+- `GET /probe?target=host[:port]` — scrape any instance through one exporter, on an
+  isolated per-request registry (blackbox-exporter style). `PROBE_ENABLED` toggles it.
+- `QUERY_TIMEOUT_MS` (default 30000) — per-collector query timeout; a slow collector
+  is abandoned and skipped without failing the scrape. `CONNECT_TIMEOUT_MS` (15000).
+
+### Changed
+
+- `src/metrics.js` split into `src/collectors/*.js` domain modules. Collectors are now
+  declarative (`{ name, gauges, query, collect, optional }`) and bound to a registry by
+  `buildEntries(registry)`, so `/metrics` and `/probe` share one collector set.
+- The e2e test asserts `(required) ⊆ scraped ⊆ declared` — `optional` collectors
+  (Always On, Agent) may be absent on a vanilla instance.
+
+### Permissions
+
+- Backup / suspect-page / Agent collectors need `msdb` read (`db_datareader`, and
+  `SQLAgentReaderRole` for jobs). See README "Required permissions". Missing grants
+  only disable the affected collector.
+
 ## 2.0.0
 
 Modernization release. The `/metrics` output is backward compatible; the breaking
