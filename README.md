@@ -1,7 +1,10 @@
 # Prometheus MSSQL Exporter Docker Container
 
-[![Node.js CI](https://github.com/awaragi/prometheus-mssql-exporter/actions/workflows/node.js.yml/badge.svg)](https://github.com/awaragi/prometheus-mssql-exporter/actions/workflows/node.js.yml)
-[![Docker Pulls](https://img.shields.io/docker/pulls/awaragi/prometheus-mssql-exporter)](https://hub.docker.com/r/awaragi/prometheus-mssql-exporter)
+[![Node.js CI](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/actions/workflows/node.js.yml/badge.svg)](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/actions/workflows/node.js.yml)
+[![Build and Publish](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/actions/workflows/publish.yml/badge.svg)](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/actions/workflows/publish.yml)
+[![CodeQL](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/actions/workflows/github-code-scanning/codeql)
+[![Dependabot Updates](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/actions/workflows/dependabot/dependabot-updates)
+[![Container image](https://img.shields.io/badge/ghcr.io-prometheus--mssql--exporter-2496ED?logo=docker&logoColor=white)](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/pkgs/container/prometheus-mssql-exporter)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Prometheus exporter for Microsoft SQL Server (MSSQL). A single Node.js process that, on each scrape of `/metrics`, opens a connection, runs each collector's query, and exposes the results as Prometheus gauges. Collectors live in `src/collectors/` and each only _describes_ its gauges and SQL, so the same set can also be run per-target through the `/probe` endpoint.
@@ -40,7 +43,7 @@ Please feel free to submit other interesting metrics to include.
 
 ```shell
 docker run -e SERVER=192.168.56.101 -e USERNAME=SA -e PASSWORD=qkD4x3yy -e DEBUG=app \
-  -p 4000:4000 --name prometheus-mssql-exporter awaragi/prometheus-mssql-exporter
+  -p 4000:4000 --name prometheus-mssql-exporter ghcr.io/bobobass84/prometheus-mssql-exporter
 ```
 
 The container exposes port 4000. Endpoints: `/metrics` (the configured instance; `/` redirects here), `/probe?target=host[:port]` (any instance — see below), `/healthz` (database-free liveness probe used by the image `HEALTHCHECK`).
@@ -89,7 +92,7 @@ Collectors whose permissions are missing simply fail and are skipped (`mssql_col
 ```yaml
 services:
   mssql-exporter:
-    image: awaragi/prometheus-mssql-exporter
+    image: ghcr.io/bobobass84/prometheus-mssql-exporter
     ports:
       - "4000:4000"
     environment:
@@ -139,11 +142,11 @@ Otherwise run one exporter per instance, each on its own forwarded port (`-p 400
 
 ### Unable to connect to database
 
-Raised in [issue #19](https://github.com/awaragi/prometheus-mssql-exporter/issues/19). Named instances assign the TCP port dynamically by default; either configure a [static port](https://learn.microsoft.com/en-US/sql/database-engine/configure-windows/configure-a-server-to-listen-on-a-specific-tcp-port) and pass it via `PORT`, or enable the SQL Server Browser.
+Named instances assign the TCP port dynamically by default; either configure a [static port](https://learn.microsoft.com/en-US/sql/database-engine/configure-windows/configure-a-server-to-listen-on-a-specific-tcp-port) and pass it via `PORT`, or enable the SQL Server Browser.
 
 ### Running multiple instances of the exporter
 
-Raised in [issue #20](https://github.com/awaragi/prometheus-mssql-exporter/issues/20). Give each container its own host port forward.
+Give each container its own host port forward.
 
 ### What Grafana dashboard can I use
 
@@ -215,7 +218,7 @@ npm run test:e2e
 ```shell
 npm run docker:build
 # multi-arch build (as CI does on a published release)
-docker buildx build --platform linux/amd64,linux/arm64 -t awaragi/prometheus-mssql-exporter .
+docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/bobobass84/prometheus-mssql-exporter .
 ```
 
-Publishing to Docker Hub is handled by `.github/workflows/publish.yml` on a published GitHub Release.
+Publishing to the GitHub Container Registry is handled by `.github/workflows/publish.yml` on a published GitHub Release.

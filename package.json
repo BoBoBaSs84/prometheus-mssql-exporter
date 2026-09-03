@@ -41,7 +41,7 @@
     "test:mssql:2019": "docker run --name mssql --rm -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD=$MSSQL_SA_PASSWORD -p 1433:1433 mcr.microsoft.com/mssql/server:2019-latest",
     "test:mssql:2022": "docker run --name mssql --rm -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD=$MSSQL_SA_PASSWORD -p 1433:1433 mcr.microsoft.com/mssql/server:2022-latest",
     "test:mssql:2025": "docker run --name mssql --rm -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD=$MSSQL_SA_PASSWORD -p 1433:1433 mcr.microsoft.com/mssql/server:2025-latest",
-    "docker:build": "docker build . -t awaragi/prometheus-mssql-exporter"
+    "docker:build": "docker build . -t ghcr.io/bobobass84/prometheus-mssql-exporter"
   },
   "dependencies": {
     "debug": "4.4.3",
