@@ -1,2 +1,15 @@
 .git
+.github
 node_modules
+coverage
+test
+*.md
+!LICENSE
+.env
+.env.example
+.editorconfig
+.prettier*
+eslint.config.js
+vitest.config.js
+Dockerfile
+.dockerignore

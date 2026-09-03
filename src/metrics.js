@@ -2,9 +2,11 @@
  * Collection of metrics and their associated SQL requests
  * Created by Pierre Awaragi
  */
-const metricsLog = require("debug")("metrics");
-const client = require("prom-client");
-const { productVersionParse } = require("./utils");
+import createDebug from "debug";
+import client from "prom-client";
+import { productVersionParse } from "./utils.js";
+
+const metricsLog = createDebug("metrics");
 
 const mssql_up = {
   metrics: {
@@ -25,7 +27,7 @@ const mssql_product_version = {
   query: `SELECT CONVERT(VARCHAR(128), SERVERPROPERTY('productversion')) AS [ProductVersion];`,
   collect: (rows, metrics) => {
     let v = productVersionParse(rows[0][0].value);
-    const mssql_product_version = v.major + "." + v.minor;
+    const mssql_product_version = Number(`${v.major}.${v.minor}`);
     metricsLog("Fetched version of instance", mssql_product_version);
     metrics.mssql_product_version.set(mssql_product_version);
   },
@@ -259,7 +261,7 @@ const mssql_buffer_manager = {
       "page_checkpoint_total",
       page_checkpoint_total,
       "lazy_write_total",
-      lazy_write_total
+      lazy_write_total,
     );
     metrics.mssql_page_read_total.set(page_read);
     metrics.mssql_page_write_total.set(page_write);
@@ -385,7 +387,7 @@ FROM sys.dm_os_sys_memory`,
       "Total page file",
       mssql_total_page_file_kb,
       "Available page file",
-      mssql_available_page_file_kb
+      mssql_available_page_file_kb,
     );
     metrics.mssql_total_physical_memory_kb.set(mssql_total_physical_memory_kb);
     metrics.mssql_available_physical_memory_kb.set(mssql_available_physical_memory_kb);
@@ -414,6 +416,4 @@ const entries = {
   mssql_os_sys_memory,
 };
 
-module.exports = {
-  entries,
-};
+export { entries };

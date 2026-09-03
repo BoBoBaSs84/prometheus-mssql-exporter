@@ -1,8 +1,12 @@
 {
   "name": "prometheus-mssql-exporter",
-  "version": "1.3.0",
+  "version": "2.0.0",
+  "type": "module",
   "main": "src/index.js",
   "private": false,
+  "engines": {
+    "node": ">=20.12.0"
+  },
   "keywords": [
     "prometheus",
     "mssql",
@@ -23,28 +27,38 @@
     "url": "https://github.com/awaragi/prometheus-mssql-exporter/issues"
   },
   "scripts": {
-    "docker:build": "docker build . -t awaragi/prometheus-mssql-exporter",
-    "docker:run": "export DOCKERID=$(docker build -q .) && docker run --name prometheus-mssql-exporter --rm -it -p 4000:4000 -e SERVER=$(docker inspect mssql | jq -r '.[].NetworkSettings.Networks.bridge.IPAddress') -e USERNAME=SA -e PASSWORD=$SA_PASSWORD -e DEBUG=app,db,metrics $DOCKERID ; docker image rm $DOCKERID",
-    "docker:run:published": "export DOCKERID=awaragi/prometheus-mssql-exporter && docker run --name prometheus-mssql-exporter --rm -it -p 4000:4000 -e SERVER=$(docker inspect mssql | jq -r '.[].NetworkSettings.Networks.bridge.IPAddress') -e USERNAME=SA -e PASSWORD=$SA_PASSWORD -e DEBUG=app,db,metrics $DOCKERID ; docker image rm $DOCKERID",
-    "start": "DEBUG=app,db,metrics SERVER=localhost USERNAME=SA PASSWORD=$SA_PASSWORD node src/index.js",
-    "start:verbose": "DEBUG=app,db,metrics,queries SERVER=localhost USERNAME=SA PASSWORD=$SA_PASSWORD node src/index.js",
-    "test:mssql:2017": "docker run --name mssql --rm -e ACCEPT_EULA=Y -e SA_PASSWORD=$SA_PASSWORD -p 1433:1433 --name mssql mcr.microsoft.com/mssql/server:2017-latest",
-    "test:mssql:2019": "docker run --name mssql --rm -e ACCEPT_EULA=Y -e SA_PASSWORD=$SA_PASSWORD -p 1433:1433 --name mssql mcr.microsoft.com/mssql/server:2019-latest",
-    "test:mssql:2022": "docker run --name mssql --rm -e ACCEPT_EULA=Y -e SA_PASSWORD=$SA_PASSWORD -p 1433:1433 --name mssql mcr.microsoft.com/mssql/server:2022-latest",
-    "test:fetch": "curl http://localhost:4000/metrics",
-    "test": "jest test",
+    "start": "node --env-file-if-exists=.env src/index.js",
+    "dev": "node --env-file-if-exists=.env --watch src/index.js",
+    "metrics": "node src/metrics-docs.js",
+    "lint": "eslint .",
     "format": "prettier --write .",
-    "metrics": "node src/metrics-docs.js"
+    "format:check": "prettier --check .",
+    "test": "vitest run --project unit",
+    "test:unit": "vitest run --project unit",
+    "test:e2e": "vitest run --project e2e",
+    "test:watch": "vitest --project unit",
+    "coverage": "vitest run --project unit --coverage",
+    "test:mssql:2019": "docker run --name mssql --rm -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD=$MSSQL_SA_PASSWORD -p 1433:1433 mcr.microsoft.com/mssql/server:2019-latest",
+    "test:mssql:2022": "docker run --name mssql --rm -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD=$MSSQL_SA_PASSWORD -p 1433:1433 mcr.microsoft.com/mssql/server:2022-latest",
+    "test:mssql:2025": "docker run --name mssql --rm -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD=$MSSQL_SA_PASSWORD -p 1433:1433 mcr.microsoft.com/mssql/server:2025-latest",
+    "docker:build": "docker build . -t awaragi/prometheus-mssql-exporter"
   },
   "dependencies": {
-    "debug": "4.3.4",
-    "express": "4.17.3",
-    "prom-client": "9.1.1",
-    "tedious": "14.3.0"
+    "debug": "4.4.3",
+    "express": "5.2.1",
+    "prom-client": "15.1.3",
+    "tedious": "20.0.0"
   },
   "devDependencies": {
-    "jest": "27.5.1",
-    "prettier": "2.6.0",
-    "superagent": "7.1.1"
+    "@eslint/js": "10.0.1",
+    "@testcontainers/mssqlserver": "12.1.0",
+    "@vitest/coverage-v8": "5.0.0",
+    "eslint": "10.9.1",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.12.0",
+    "prettier": "3.9.6",
+    "supertest": "7.2.2",
+    "testcontainers": "12.1.0",
+    "vitest": "5.0.0"
   }
 }
