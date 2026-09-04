@@ -81,8 +81,9 @@ For the backup, suspect-page and SQL Agent collectors the login also needs read 
 ```sql
 USE msdb;
 CREATE USER [exporter] FOR LOGIN [exporter];
-ALTER ROLE db_datareader ADD MEMBER [exporter];   -- backupset, suspect_pages, sysjobhistory, ...
-ALTER ROLE SQLAgentReaderRole ADD MEMBER [exporter];   -- sysjobs / sysjobactivity (optional)
+ALTER ROLE [db_datareader] ADD MEMBER [exporter];   -- backupset, suspect_pages, sysjobhistory, ...
+ALTER ROLE [SQLAgentReaderRole] ADD MEMBER [exporter];   -- sysjobs / sysjobactivity (optional)
+GRANT EXECUTE ON [dbo].[agent_datetime] TO [exporter];
 ```
 
 Collectors whose permissions are missing simply fail and are skipped (`mssql_collector_success{collector="..."} 0`); the rest of the scrape is unaffected.
