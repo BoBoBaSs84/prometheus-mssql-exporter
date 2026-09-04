@@ -15,14 +15,14 @@ The image is published for `linux/amd64` and `linux/arm64`.
 
 ## Exposed metrics
 
-Run `npm run metrics` for the authoritative list — every metric with the exact SQL that produces it (useful for DBA review). Roughly 90 `mssql_*` families, by area:
+Run `npm run metrics` for the authoritative list — every metric with the exact SQL that produces it (useful for DBA review). 89 `mssql_*` families come from the collectors, plus 3 scrape-quality metrics, by area:
 
 - **Instance** — `mssql_up`, `mssql_product_version`, `mssql_instance_local_time`
-- **Connections & sessions** — `mssql_connections`, `mssql_client_connections`, `mssql_active_sessions{status}`, `mssql_active_requests`
+- **Connections & sessions** — `mssql_connections{database,state}`, `mssql_client_connections{client,database}`, `mssql_active_sessions{status}`, `mssql_active_requests`
 - **Activity & blocking** — `mssql_blocked_sessions`, `mssql_blocking_wait_seconds_max`, `mssql_longest_running_request_seconds`, `mssql_oldest_active_transaction_seconds`
 - **Wait statistics** — `mssql_wait_time_ms{wait_type}`, `mssql_wait_tasks{wait_type}`, `mssql_signal_wait_time_ms{wait_type}` (top 25, benign waits excluded), `mssql_wait_time_ms_total`
-- **Throughput** (cumulative — use `rate()`) — `mssql_batch_requests`, `mssql_transactions{database}`, `mssql_sql_compilations_total`, `mssql_sql_recompilations_total`, `mssql_page_splits_total`, `mssql_full_scans_total`, `mssql_forwarded_records_total`, `mssql_lock_waits_total`, `mssql_lock_wait_time_ms_total`, `mssql_latch_waits_total`, `mssql_deadlocks`
-- **Memory** — `mssql_target_server_memory_bytes`, `mssql_total_server_memory_bytes`, `mssql_memory_grants_pending`, `mssql_granted_workspace_memory_bytes`, `mssql_buffer_cache_hit_ratio`, `mssql_plan_cache_hit_ratio`, plus OS memory (`mssql_*_physical_memory_kb`, `mssql_*_page_file_kb`, `mssql_memory_utilization_percentage`, `mssql_page_fault_count`)
+- **Throughput** (cumulative — use `rate()`) — `mssql_batch_requests`, `mssql_transactions{database}`, `mssql_sql_compilations_total`, `mssql_sql_recompilations_total`, `mssql_page_splits_total`, `mssql_full_scans_total`, `mssql_range_scans_total`, `mssql_index_searches_total`, `mssql_forwarded_records_total`, `mssql_lock_waits_total`, `mssql_lock_wait_time_ms_total`, `mssql_lock_timeouts_total`, `mssql_latch_waits_total`, `mssql_latch_wait_time_ms_total`, `mssql_deadlocks`
+- **Memory** — `mssql_target_server_memory_bytes`, `mssql_total_server_memory_bytes`, `mssql_memory_grants_pending`, `mssql_memory_grants_outstanding`, `mssql_granted_workspace_memory_bytes`, `mssql_maximum_workspace_memory_bytes`, `mssql_connection_memory_bytes`, `mssql_lock_memory_bytes`, `mssql_optimizer_memory_bytes`, `mssql_sql_cache_memory_bytes`, `mssql_buffer_cache_hit_ratio`, `mssql_plan_cache_hit_ratio`, plus OS memory (`mssql_*_physical_memory_kb`, `mssql_*_page_file_kb`, `mssql_memory_utilization_percentage`, `mssql_page_fault_count`)
 - **Buffer manager & I/O** — `mssql_page_read_total`, `mssql_page_write_total`, `mssql_page_life_expectancy`, `mssql_lazy_write_total`, `mssql_page_checkpoint_total`, `mssql_io_stall{database,type}`, `mssql_io_stall_total{database}`
 - **Storage** — `mssql_database_filesize{...}`, `mssql_database_log_size_bytes{database}`, `mssql_database_log_used_percent{database}`, `mssql_database_vlf_count{database}`, `mssql_volume_total_bytes{volume}`, `mssql_volume_available_bytes{volume}`, `mssql_log_growths{database}`
 - **Databases** — `mssql_database_state{database}`, `mssql_database_recovery_model{database}`, `mssql_database_is_read_only{database}`, `mssql_database_is_auto_close_on{database}`, `mssql_database_is_auto_shrink_on{database}`, `mssql_database_page_verify_option{database}`, `mssql_suspect_pages{database}`
@@ -30,7 +30,7 @@ Run `npm run metrics` for the authoritative list — every metric with the exact
 - **Configuration** — `mssql_configuration{name}` (a curated subset of `sys.configurations`)
 - **Errors** — `mssql_user_errors`, `mssql_kill_connection_errors`
 - **Always On** (only `mssql_hadr_enabled` is emitted when AGs are not configured) — `mssql_hadr_replica_*{ag,replica}`, `mssql_hadr_database_*{ag,replica,database}`, `mssql_hadr_secondary_lag_seconds{...}`
-- **SQL Agent** (emitted only when Agent/jobs exist) — `mssql_agent_up`, `mssql_agent_job_last_run_success{job}`, `mssql_agent_job_last_run_timestamp{job}`, `mssql_agent_job_last_duration_seconds{job}`, `mssql_agent_job_running{job}`
+- **SQL Agent** (emitted only when Agent/jobs exist) — `mssql_agent_up`, `mssql_agent_job_enabled{job}`, `mssql_agent_job_last_run_success{job}`, `mssql_agent_job_last_run_timestamp{job}`, `mssql_agent_job_last_duration_seconds{job}`, `mssql_agent_job_running{job}`
 - **Scrape quality** — `mssql_scrape_duration_seconds`, `mssql_collector_duration_seconds{collector}`, `mssql_collector_success{collector}`
 
 Unless `COLLECT_DEFAULT_METRICS=false`, the standard `prom-client` process/Node.js metrics (`process_*`, `nodejs_*`) are also exposed on `/metrics` (never on `/probe`).
@@ -65,7 +65,7 @@ All configuration is via environment variables:
 | `CONNECT_TIMEOUT_MS`       | no       | `15000` | Connection timeout                                                                                                                                                     |
 | `QUERY_TIMEOUT_MS`         | no       | `30000` | Per-collector query timeout — a slow collector is abandoned and skipped, the rest of the scrape still returns                                                          |
 | `PROBE_ENABLED`            | no       | `true`  | Serve the `/probe` multi-target endpoint                                                                                                                               |
-| `DEBUG`                    | no       | —       | Comma-delimited log channels: `app`, `db`, `metrics`, `queries`                                                                                                        |
+| `DEBUG`                    | no       | —       | Comma-delimited log channels: `app`, `db`, `metrics`                                                                                                                   |
 
 ### Required permissions
 
