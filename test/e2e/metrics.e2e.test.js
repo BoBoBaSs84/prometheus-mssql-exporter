@@ -8,9 +8,18 @@ import { MSSQLServerContainer } from "@testcontainers/mssqlserver";
 import { createApp } from "../../src/server.js";
 import { loadConfig } from "../../src/config.js";
 import { collectors, meta } from "../../src/metrics.js";
+import { connect, runQuery } from "../../src/db.js";
+import { runScript, waitForAgent, runJobOnce, retry } from "./helpers/provision.js";
 
 const IMAGE = process.env.MSSQL_IMAGE || "mcr.microsoft.com/mssql/server:2022-latest";
 const PASSWORD = "Str0ng_Passw0rd!";
+
+/** Least-privilege login provisioned from `sql/exporter-permissions.sql`. */
+const EXPORTER_LOGIN = "exporter";
+/** Same grants, but without EXECUTE on msdb.dbo.agent_datetime. */
+const NOEXEC_LOGIN = "exporter_noexec";
+const EXPORTER_PASSWORD = "Str0ng_Exp0rter!";
+const JOB = "exporter_e2e_job";
 
 const execFileAsync = promisify(execFile);
 const canRun = (bin) =>
@@ -44,37 +53,83 @@ const scrapedNames = (body) =>
       .filter((name) => name.startsWith("mssql_")),
   );
 
+const sampleLines = (body) => body.split("\n").filter((line) => line && !line.startsWith("#"));
+
+/** Samples as `{ 'mssql_up': 1, 'mssql_database_state{database="master"}': 0, ... }`. */
+const asMap = (body) =>
+  Object.fromEntries(
+    sampleLines(body)
+      .map((line) => line.split(/ (?=[^ ]*$)/))
+      .map(([key, value]) => [key, Number(value)]),
+  );
+
+/** Per-collector outcome keyed by collector name: `{ mssql_agent_jobs: 1, ... }`. */
+const collectorSuccess = (body) =>
+  Object.fromEntries(
+    sampleLines(body)
+      .filter((line) => line.startsWith("mssql_collector_success{"))
+      .map((line) => {
+        const [key, value] = line.split(/ (?=[^ ]*$)/);
+        return [key.match(/collector="([^"]+)"/)[1], Number(value)];
+      }),
+  );
+
 describe.skipIf(!containerRuntimeAvailable)(`E2E against ${IMAGE}`, () => {
   let container;
+  let admin;
   let app;
 
-  beforeAll(async () => {
-    container = await new MSSQLServerContainer(IMAGE).acceptLicense().withPassword(PASSWORD).start();
+  const envFor = (userName, password) => ({
+    SERVER: container.getHost(),
+    PORT: String(container.getPort()),
+    USERNAME: userName,
+    PASSWORD: password,
+    ENCRYPT: "false",
+    TRUST_SERVER_CERTIFICATE: "true",
+    COLLECT_DEFAULT_METRICS: "false",
+  });
 
-    app = createApp(
-      loadConfig({
-        SERVER: container.getHost(),
-        PORT: String(container.getPort()),
-        USERNAME: container.getUsername(),
-        PASSWORD: container.getPassword(),
-        ENCRYPT: "false",
-        TRUST_SERVER_CERTIFICATE: "true",
-        COLLECT_DEFAULT_METRICS: "false",
-      }),
-    );
+  const buildApp = (userName, password) => createApp(loadConfig(envFor(userName, password)));
+
+  beforeAll(async () => {
+    container = await new MSSQLServerContainer(IMAGE)
+      .acceptLicense()
+      .withPassword(PASSWORD)
+      // Equivalent to `mssql-conf set sqlagent.enabled true`. Without it the
+      // Agent collectors have nothing to report and the msdb grants the README
+      // documents are never exercised.
+      .withEnvironment({ MSSQL_AGENT_ENABLED: "true" })
+      .start();
+
+    app = buildApp(container.getUsername(), container.getPassword());
+
+    // Provision the documented least-privilege logins and an Agent job as sa.
+    admin = await connect(loadConfig(envFor(container.getUsername(), container.getPassword())));
+
+    for (const login of [EXPORTER_LOGIN, NOEXEC_LOGIN]) {
+      await runScript(admin, "exporter-permissions.sql", { __LOGIN__: login, __PASSWORD__: EXPORTER_PASSWORD });
+    }
+    // The negative case: everything the README grants except this one.
+    await runQuery(admin, "USE msdb");
+    await runQuery(admin, `REVOKE EXECUTE ON [dbo].[agent_datetime] TO [${NOEXEC_LOGIN}]`);
+
+    await waitForAgent(admin);
+    await retry("the msdb job procedures to accept writes", () => runScript(admin, "agent-job.sql", { __JOB__: JOB }));
+    await runJobOnce(admin, JOB);
   });
 
   afterAll(async () => {
+    admin?.close();
     await container?.stop();
   });
 
   const missingRequired = (body) => [...requiredNames].filter((name) => !scrapedNames(body).has(name));
 
   /** Scrape until every required family is present (some DMVs lag just after boot). */
-  const scrapeWhenReady = async () => {
+  const scrapeWhenReady = async (target = app) => {
     let res;
     for (let attempt = 0; attempt < 10; attempt++) {
-      res = await request(app).get("/metrics");
+      res = await request(target).get("/metrics");
       if (res.status === 200 && missingRequired(res.text).length === 0) {
         return res;
       }
@@ -87,15 +142,14 @@ describe.skipIf(!containerRuntimeAvailable)(`E2E against ${IMAGE}`, () => {
     const res = await scrapeWhenReady();
     expect(res.status).toBe(200);
 
-    const lines = res.text.split("\n").filter((line) => line && !line.startsWith("#"));
-    const asMap = Object.fromEntries(lines.map((line) => line.split(/ (?=[^ ]*$)/)).map(([key, value]) => [key, Number(value)]));
+    const metrics = asMap(res.text);
 
-    expect(asMap.mssql_up).toBe(1);
-    expect(asMap.mssql_product_version).toBeGreaterThanOrEqual(15);
-    expect(asMap.mssql_instance_local_time).toBeGreaterThan(0);
-    expect(asMap.mssql_total_physical_memory_kb).toBeGreaterThan(0);
-    expect(asMap.mssql_scrape_duration_seconds).toBeGreaterThan(0);
-    expect(asMap['mssql_database_state{database="master"}']).toBe(0);
+    expect(metrics.mssql_up).toBe(1);
+    expect(metrics.mssql_product_version).toBeGreaterThanOrEqual(15);
+    expect(metrics.mssql_instance_local_time).toBeGreaterThan(0);
+    expect(metrics.mssql_total_physical_memory_kb).toBeGreaterThan(0);
+    expect(metrics.mssql_scrape_duration_seconds).toBeGreaterThan(0);
+    expect(metrics['mssql_database_state{database="master"}']).toBe(0);
 
     // every required family present ...
     expect(missingRequired(res.text)).toEqual([]);
@@ -110,5 +164,39 @@ describe.skipIf(!containerRuntimeAvailable)(`E2E against ${IMAGE}`, () => {
     expect(up).toBe("mssql_up 1");
     // probe output must not carry the default-registry process metrics
     expect(res.text).not.toMatch(/^process_/m);
+  });
+
+  it("reports the SQL Agent job the fixture created", async () => {
+    const metrics = asMap((await scrapeWhenReady()).text);
+
+    expect(metrics.mssql_agent_up).toBe(1);
+    expect(metrics[`mssql_agent_job_enabled{job="${JOB}"}`]).toBe(1);
+    expect(metrics[`mssql_agent_job_last_run_success{job="${JOB}"}`]).toBe(1);
+    // Non-zero only if msdb.dbo.agent_datetime() actually executed.
+    expect(metrics[`mssql_agent_job_last_run_timestamp{job="${JOB}"}`]).toBeGreaterThan(0);
+  });
+
+  it("collects everything with only the permissions the README documents", async () => {
+    const asSa = collectorSuccess((await scrapeWhenReady()).text);
+    const asExporter = collectorSuccess((await scrapeWhenReady(buildApp(EXPORTER_LOGIN, EXPORTER_PASSWORD))).text);
+
+    // The least-privilege login must not lose a single collector against sa.
+    expect(asExporter).toEqual(asSa);
+    expect(asExporter.mssql_agent_up).toBe(1);
+    expect(asExporter.mssql_agent_jobs).toBe(1);
+  });
+
+  it("fails the agent job collector without EXECUTE on msdb.dbo.agent_datetime", async () => {
+    // /probe builds a throwaway registry, so this failing scrape cannot leak
+    // into the default-registry assertions above.
+    const res = await request(buildApp(NOEXEC_LOGIN, EXPORTER_PASSWORD)).get(`/probe?target=${container.getHost()}:${container.getPort()}`);
+    expect(res.status).toBe(200);
+
+    const success = collectorSuccess(res.text);
+    expect(success.mssql_agent_jobs).toBe(0);
+    // ... and only that collector: the rest of the grants are still in place.
+    expect(success.mssql_agent_up).toBe(1);
+    expect(success.mssql_backups).toBe(1);
+    expect(success.mssql_suspect_pages).toBe(1);
   });
 });

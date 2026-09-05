@@ -15,9 +15,10 @@ export default defineConfig({
           name: "e2e",
           include: ["test/e2e/**/*.test.js"],
           environment: "node",
-          // SQL Server container pull + first-boot initialisation is slow.
+          // SQL Server container pull + first-boot initialisation is slow, and
+          // the setup additionally waits for the Agent service and a job run.
           testTimeout: 240_000,
-          hookTimeout: 240_000,
+          hookTimeout: 360_000,
         },
       },
     ],

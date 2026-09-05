@@ -88,6 +88,8 @@ GRANT EXECUTE ON [dbo].[agent_datetime] TO [exporter];
 
 Collectors whose permissions are missing simply fail and are skipped (`mssql_collector_success{collector="..."} 0`); the rest of the scrape is unaffected.
 
+The same statements live in [`test/e2e/sql/exporter-permissions.sql`](test/e2e/sql/exporter-permissions.sql) (with `__LOGIN__` / `__PASSWORD__` placeholders). The e2e suite provisions that exact login and asserts it loses no collector against `sa`, so this list is verified on every CI run.
+
 ### docker compose
 
 ```yaml
@@ -201,6 +203,9 @@ npm run metrics
 
 - `npm test` / `npm run test:unit` — fast unit tests (collectors, config, server with a stubbed DB). No setup required.
 - `npm run test:e2e` — boots a real SQL Server in a throwaway container via [Testcontainers](https://node.testcontainers.org/), scrapes it in-process, and asserts every declared metric family is produced. Requires a container runtime (Docker or Podman); automatically skipped when none is reachable. Override the image with `MSSQL_IMAGE=mcr.microsoft.com/mssql/server:2019-latest`.
+
+  The container runs with `MSSQL_AGENT_ENABLED=true` and the suite provisions the documented least-privilege login plus a SQL Agent job, so the scrape is also performed as `exporter` — any grant missing from [Required permissions](#required-permissions) shows up as a failing collector. A second login without `GRANT EXECUTE ON [dbo].[agent_datetime]` guards that particular grant against regressing.
+
 - `npm run coverage` — unit tests with a V8 coverage report.
 - `npm run lint` / `npm run format` — ESLint / Prettier.
 
