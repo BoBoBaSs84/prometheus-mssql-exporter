@@ -68,6 +68,8 @@ Key design points that span files:
 
 - **DB injection for tests.** `createApp(config, deps)` merges `deps` over `src/db.js`, so `test/unit/server.test.js` exercises the full HTTP path with a stubbed `connect`/`runQuery`.
 
+- **E2E provisioning.** One container per run, started with `MSSQL_AGENT_ENABLED=true`. `test/e2e/helpers/provision.js` runs the `GO`-separated fixtures in `test/e2e/sql/` (tedious has no `GO`, so batches are split client-side), waits for the Agent service and runs a job once so `sysjobhistory` has the `run_date`/`run_time` that `msdb.dbo.agent_datetime()` is called with.
+
 - **Config is env-only** (`src/config.js`, `loadConfig(env)`), returning a tedious `ConnectionConfiguration` plus exporter settings. `SERVER`/`USERNAME`/`PASSWORD` are required; everything else has a default. See `.env.example` and the README table.
 
 ## Adding or changing a collector
@@ -75,7 +77,7 @@ Key design points that span files:
 1. Add/edit the collector object in the appropriate `src/collectors/*.js` (or a new file registered in `collectors/index.js`).
 2. Add a matching entry to `test/fixtures/rows.js` — `test/unit/collectors.test.js` asserts fixture keys exactly equal collector keys, so a missing fixture fails the build.
 3. Mark `optional: true` if the query can legitimately return no rows on a vanilla instance; the e2e suite requires every non-optional gauge family to be present in the scrape output.
-4. If the collector reads `msdb` (backups, suspect pages, Agent) or needs elevated rights, update the "Required permissions" section of the README.
+4. If the collector reads `msdb` (backups, suspect pages, Agent) or needs elevated rights, update **both** the "Required permissions" section of the README and `test/e2e/sql/exporter-permissions.sql` — the e2e suite scrapes with that login and compares its per-collector success against `sa`, so a missing grant fails the build.
 5. New metrics use Prometheus base units (`_bytes`, `_seconds`) and `_total` for cumulative counters; pre-2.1.0 metrics keep their historical `_kb` names for compatibility.
 
 Debug logging uses `debug` channels `app`, `db`, `metrics` (set via `DEBUG`).
