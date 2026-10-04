@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.1.2
+
+### What's Changed
+
+- Only package non-breaking package updates made.
+
+## 2.1.1
+
+### What's Changed
+
+- Bump node from 22-alpine to 26-alpine by @dependabot[bot] in #24
+- Bump actions/checkout from 6 to 7 by @dependabot[bot] in #27
+- Bump actions/setup-node from 6 to 7 by @dependabot[bot] in #26
+- Bump docker/metadata-action from 5 to 6 by @dependabot[bot] in #25
+- fix(docs): update SQL permissions for exporter user in README by @BoBoBaSs84 in #28
+- docs(readme): sync metric list and DEBUG channels with code by @BoBoBaSs84 in #29
+- feat(e2e): enhance SQL Agent job testing and permissions setup by @BoBoBaSs84 in #30
+
 ## 2.1.0
 
 Additive release — no breaking changes, `/metrics` remains backward compatible.
