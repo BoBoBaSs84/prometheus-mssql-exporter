@@ -8,6 +8,13 @@ updates:
       time: "03:00"
     assignees:
       - "BoBoBaSs84"
+    groups:
+      # @vitest/coverage-v8 peer-depends on an exact vitest version,
+      # so bumping either one alone breaks `npm ci` with ERESOLVE.
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
