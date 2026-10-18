@@ -6,6 +6,8 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "03:00"
+    assignees:
+      - "BoBoBaSs84"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -13,6 +15,8 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "03:00"
+    assignees:
+      - "BoBoBaSs84"
 
   - package-ecosystem: "docker"
     directory: "/"
@@ -20,3 +24,5 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "03:00"
+    assignees:
+      - "BoBoBaSs84"
