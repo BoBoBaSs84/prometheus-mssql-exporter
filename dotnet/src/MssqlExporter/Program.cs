@@ -1,5 +1,6 @@
 using MssqlExporter;
 using MssqlExporter.Data;
+using Prometheus;
 
 if (args.Contains("--print-metrics"))
 {
@@ -8,6 +9,10 @@ if (args.Contains("--print-metrics"))
 }
 
 var options = ExporterOptions.FromEnvironment();
+
+// Keep only the process_* and dotnet_* runtime metrics (the Node exporter's nodejs_*/process_* equivalent),
+// not the per-library EventCounter/Meter families or prometheus_net_* self-metrics.
+Metrics.SuppressDefaultMetrics(new SuppressDefaultMetricOptions { SuppressEventCounters = true, SuppressMeters = true, SuppressDebugMetrics = true });
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls($"http://0.0.0.0:{options.ExposePort}");

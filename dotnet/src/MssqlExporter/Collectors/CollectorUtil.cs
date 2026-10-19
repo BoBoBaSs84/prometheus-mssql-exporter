@@ -25,8 +25,11 @@ public static class CollectorUtil
         _ => throw new InvalidCastException($"Cannot convert {value.GetType().Name} '{value}' to a gauge value"),
     };
 
-    /// <summary>Converts a cell to a label value; SQL NULL becomes the empty string.</summary>
-    public static string AsString(object? value) => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "";
+    /// <summary>
+    /// Converts a cell to a label value. SQL NULL becomes <c>"null"</c>, as <c>String(null)</c> did in the Node
+    /// exporter, so existing series (e.g. <c>volume="null"</c>) keep their identity.
+    /// </summary>
+    public static string AsString(object? value) => value is null ? "null" : Convert.ToString(value, CultureInfo.InvariantCulture) ?? "null";
 
     /// <summary>
     /// Turns rows shaped <c>[name, value, ...]</c> into a trimmed-name lookup, for

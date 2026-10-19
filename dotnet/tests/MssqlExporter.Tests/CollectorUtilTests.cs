@@ -51,4 +51,13 @@ public sealed class CollectorUtilTests
     [DataRow(0, 0, 0)]
     public void RatioPercentIsZeroWhenBaseIsZero(double value, double @base, double expected) =>
         Assert.AreEqual(expected, CollectorUtil.RatioPercent(value, @base), 1e-9);
+
+    [TestMethod]
+    public void AsStringKeepsNodeSemanticsForNullAndNumbers()
+    {
+        Assert.AreEqual("null", CollectorUtil.AsString(null));
+        Assert.AreEqual("master", CollectorUtil.AsString("master"));
+        Assert.AreEqual("0", CollectorUtil.AsString((byte)0));
+        Assert.AreEqual("1.5", CollectorUtil.AsString(1.5d));
+    }
 }

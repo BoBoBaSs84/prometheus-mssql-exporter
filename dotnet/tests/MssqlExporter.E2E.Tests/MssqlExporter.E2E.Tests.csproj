@@ -9,6 +9,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The fixtures stay where the Node e2e suite reads them until the cut-over moves them here. -->
+    <Content Include="..\..\..\test\e2e\sql\*.sql" Link="Sql\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="MSTest" />
     <PackageReference Include="Testcontainers.MsSql" />
