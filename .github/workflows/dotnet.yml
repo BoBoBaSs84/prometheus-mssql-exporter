@@ -1,0 +1,57 @@
+# Format check + unit tests on every push/PR, plus a Testcontainers-driven e2e matrix
+# across the supported SQL Server versions.
+
+name: .NET CI
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+jobs:
+  format-unit:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore MssqlExporter.slnx
+      - run: dotnet format MssqlExporter.slnx --verify-no-changes --no-restore
+      - run: dotnet build MssqlExporter.slnx --no-restore -c Release
+      - run: dotnet test tests/MssqlExporter.Tests --no-build -c Release
+
+  e2e:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    # SQL Server 2025 image may still be preview-only; don't fail the build on it.
+    continue-on-error: ${{ contains(matrix.mssql-image, ':2025') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        mssql-image:
+          - mcr.microsoft.com/mssql/server:2019-latest
+          - mcr.microsoft.com/mssql/server:2022-latest
+          - mcr.microsoft.com/mssql/server:2025-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Run e2e tests
+        env:
+          MSSQL_IMAGE: ${{ matrix.mssql-image }}
+        run: dotnet test tests/MssqlExporter.E2E.Tests -c Release
+
+  docker:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build image
+        run: docker build -t prometheus-mssql-exporter:ci .

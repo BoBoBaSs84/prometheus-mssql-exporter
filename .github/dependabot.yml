@@ -1,6 +1,6 @@
 version: 2
 updates:
-  - package-ecosystem: "npm"
+  - package-ecosystem: "nuget"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -9,12 +9,13 @@ updates:
     assignees:
       - "BoBoBaSs84"
     groups:
-      # @vitest/coverage-v8 peer-depends on an exact vitest version,
-      # so bumping either one alone breaks `npm ci` with ERESOLVE.
-      vitest:
+      # The ASP.NET Core test host, runtime packages and shared framework
+      # components ship from the same release train.
+      dotnet-runtime:
         patterns:
-          - "vitest"
-          - "@vitest/*"
+          - "Microsoft.AspNetCore.*"
+          - "Microsoft.Extensions.*"
+          - "System.*"
 
   - package-ecosystem: "github-actions"
     directory: "/"

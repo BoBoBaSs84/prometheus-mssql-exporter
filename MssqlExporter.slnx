@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MssqlExporter/MssqlExporter.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MssqlExporter.E2E.Tests/MssqlExporter.E2E.Tests.csproj" />
+    <Project Path="tests/MssqlExporter.Tests/MssqlExporter.Tests.csproj" />
+  </Folder>
+</Solution>
