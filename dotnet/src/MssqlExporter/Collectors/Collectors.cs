@@ -9,4 +9,7 @@ public static class Collectors
         .. Connections.All,
         .. Throughput.All,
     ];
+
+    /// <summary>The liveness collector, also used to answer a failed scrape with <c>mssql_up 0</c>.</summary>
+    public static Collector Up { get; } = All.Single(c => c.Name == "mssql_up");
 }

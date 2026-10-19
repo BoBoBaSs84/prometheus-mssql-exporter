@@ -2,8 +2,10 @@ using Microsoft.Data.SqlClient;
 
 namespace MssqlExporter.Data;
 
-public sealed class SqlRunner(ILogger<SqlRunner> logger) : ISqlRunner
+public sealed class SqlRunner(ILoggerFactory loggerFactory) : ISqlRunner
 {
+    private readonly ILogger logger = loggerFactory.CreateLogger("Db");
+
     public async Task<ISqlSession> ConnectAsync(string connectionString, CancellationToken cancellationToken)
     {
         var builder = new SqlConnectionStringBuilder(connectionString);
