@@ -120,5 +120,145 @@ public sealed class CollectorsTests
     }
 
     [TestMethod]
-    public void NoCollectorIsOptionalYet() => Assert.IsFalse(All.Any(c => c.Optional));
+    public async Task MssqlDatabaseStateRecordsTheStatePerDatabase() =>
+        StringAssert.Contains(await Collect("mssql_database_state"), "mssql_database_state{database=\"master\"} 0\n");
+
+    [TestMethod]
+    public async Task MssqlDatabaseFilesizeCarriesAllFourLabels() =>
+        StringAssert.Contains(
+            await Collect("mssql_database_filesize"),
+            "mssql_database_filesize{database=\"master\",logicalname=\"master\",type=\"0\",filename=\"/var/opt/mssql/data/master.mdf\"} 4096\n");
+
+    [TestMethod]
+    public async Task MssqlBufferManagerSplitsThePivotedRowIntoGauges()
+    {
+        var text = await Collect("mssql_buffer_manager");
+        StringAssert.Contains(text, "mssql_page_read_total 100\n");
+        StringAssert.Contains(text, "mssql_page_write_total 50\n");
+        StringAssert.Contains(text, "mssql_page_life_expectancy 8000\n");
+        StringAssert.Contains(text, "mssql_lazy_write_total 3\n");
+        StringAssert.Contains(text, "mssql_page_checkpoint_total 12\n");
+    }
+
+    [TestMethod]
+    public async Task MssqlIoStallRecordsReadWriteQueuedTypesPlusTheTotal()
+    {
+        var text = await Collect("mssql_io_stall");
+        StringAssert.Contains(text, "mssql_io_stall{database=\"master\",type=\"read\"} 10\n");
+        StringAssert.Contains(text, "mssql_io_stall{database=\"master\",type=\"write\"} 20\n");
+        StringAssert.Contains(text, "mssql_io_stall{database=\"master\",type=\"queued_read\"} 1\n");
+        StringAssert.Contains(text, "mssql_io_stall{database=\"master\",type=\"queued_write\"} 2\n");
+        StringAssert.Contains(text, "mssql_io_stall_total{database=\"master\"} 35\n");
+    }
+
+    [TestMethod]
+    public async Task MssqlOsSysMemoryRecordsEachMemoryGauge()
+    {
+        var text = await Collect("mssql_os_sys_memory");
+        StringAssert.Contains(text, "mssql_total_physical_memory_kb 1000\n");
+        StringAssert.Contains(text, "mssql_available_physical_memory_kb 400\n");
+        StringAssert.Contains(text, "mssql_total_page_file_kb 2000\n");
+        StringAssert.Contains(text, "mssql_available_page_file_kb 800\n");
+    }
+
+    [TestMethod]
+    public async Task MssqlMemoryManagerConvertsKbCountersToBytes()
+    {
+        var text = await Collect("mssql_memory_manager");
+        StringAssert.Contains(text, $"mssql_total_server_memory_bytes {1_500_000L * 1024}\n");
+        StringAssert.Contains(text, "mssql_memory_grants_pending 0\n");
+        StringAssert.Contains(text, "mssql_memory_grants_outstanding 3\n");
+    }
+
+    [TestMethod]
+    public async Task MssqlCacheHitRatioComputesRatioOverBasePercentages()
+    {
+        var text = await Collect("mssql_cache_hit_ratio");
+        StringAssert.Contains(text, "mssql_buffer_cache_hit_ratio 99\n");
+        StringAssert.Contains(text, "mssql_plan_cache_hit_ratio 90\n");
+    }
+
+    [TestMethod]
+    public async Task MssqlActivityReadsTheSingleAggregateRow()
+    {
+        var text = await Collect("mssql_activity");
+        StringAssert.Contains(text, "mssql_blocked_sessions 2\n");
+        StringAssert.Contains(text, "mssql_blocking_wait_seconds_max 1.5\n");
+        StringAssert.Contains(text, "mssql_oldest_active_transaction_seconds 30\n");
+    }
+
+    [TestMethod]
+    public async Task MssqlWaitStatsLabelsByWaitType()
+    {
+        var text = await Collect("mssql_wait_stats");
+        StringAssert.Contains(text, "mssql_wait_time_ms{wait_type=\"PAGEIOLATCH_SH\"} 5000\n");
+        StringAssert.Contains(text, "mssql_signal_wait_time_ms{wait_type=\"LCK_M_X\"} 60\n");
+    }
+
+    [TestMethod]
+    public void WaitQueriesExcludeBenignWaits()
+    {
+        StringAssert.Contains(Get("mssql_wait_stats").Query, "NOT IN ('BROKER_EVENTHANDLER', 'BROKER_RECEIVE_WAITFOR'");
+        StringAssert.Contains(Get("mssql_wait_time_total").Query, "'XE_DISPATCHER_WAIT', 'XE_TIMER_EVENT')");
+    }
+
+    [TestMethod]
+    public async Task MssqlLogSpaceConvertsMbToBytes()
+    {
+        var text = await Collect("mssql_log_space");
+        StringAssert.Contains(text, $"mssql_database_log_size_bytes{{database=\"master\"}} {8 * 1024 * 1024}\n");
+        StringAssert.Contains(text, "mssql_database_log_used_percent{database=\"master\"} 12.5\n");
+    }
+
+    [TestMethod]
+    public async Task MssqlBackupsReportsMinusOneAgeAndZeroTimestampWhenNeverTaken()
+    {
+        var text = await Collect("mssql_backups");
+        StringAssert.Contains(text, "mssql_database_backup_age_seconds{database=\"master\",type=\"full\"} 3600\n");
+        StringAssert.Contains(text, "mssql_database_backup_age_seconds{database=\"master\",type=\"diff\"} -1\n");
+        StringAssert.Contains(text, "mssql_database_last_backup_timestamp{database=\"master\",type=\"log\"} 0\n");
+    }
+
+    [TestMethod]
+    public async Task MssqlHadrDatabaseCarriesAgReplicaAndDatabaseLabels() =>
+        StringAssert.Contains(
+            await Collect("mssql_hadr_database"),
+            "mssql_hadr_secondary_lag_seconds{ag=\"ag1\",replica=\"NODE2\",database=\"appdb\"} 1\n");
+
+    [TestMethod]
+    public async Task MssqlAgentJobsRecordsPerJobOutcome()
+    {
+        var text = await Collect("mssql_agent_jobs");
+        StringAssert.Contains(text, "mssql_agent_job_last_run_success{job=\"Nightly Backup\"} 1\n");
+        StringAssert.Contains(text, "mssql_agent_job_last_duration_seconds{job=\"Nightly Backup\"} 125\n");
+    }
+
+    [TestMethod]
+    public void OptionalCollectorsAreFlagged() =>
+        CollectionAssert.AreEqual(
+            new[] { "mssql_hadr_replica", "mssql_hadr_database", "mssql_agent_up", "mssql_agent_jobs" },
+            All.Where(c => c.Optional).Select(c => c.Name).ToArray());
+
+    [TestMethod]
+    public void EveryCollectorDeclaresAQueryAndAtLeastOneGauge()
+    {
+        foreach (var collector in All)
+        {
+            Assert.IsFalse(string.IsNullOrWhiteSpace(collector.Query), collector.Name);
+            Assert.IsNotEmpty(collector.Gauges, collector.Name);
+        }
+    }
+
+    [TestMethod]
+    public void CollectorsAreRegisteredInTheNodeOrder() =>
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "mssql_up", "mssql_product_version", "mssql_instance_local_time",
+                "mssql_connections", "mssql_client_connections",
+                "mssql_user_errors", "mssql_kill_connection_errors",
+                "mssql_database_state", "mssql_log_growths", "mssql_database_filesize",
+                "mssql_buffer_manager", "mssql_io_stall",
+            },
+            All.Take(12).Select(c => c.Name).ToArray());
 }

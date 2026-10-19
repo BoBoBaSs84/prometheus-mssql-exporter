@@ -7,7 +7,19 @@ public static class Collectors
     [
         .. Instance.All,
         .. Connections.All,
+        .. Errors.All,
+        .. Databases.All,
+        .. Io.All,
         .. Throughput.All,
+        .. Memory.All,
+        .. Activity.All,
+        .. Waits.All,
+        .. Space.All,
+        .. Settings.All,
+        .. Backups.All,
+        .. Availability.All,
+        .. AlwaysOn.All,
+        .. Agent.All,
     ];
 
     /// <summary>The liveness collector, also used to answer a failed scrape with <c>mssql_up 0</c>.</summary>

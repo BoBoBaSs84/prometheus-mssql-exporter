@@ -1,6 +1,12 @@
 using MssqlExporter;
 using MssqlExporter.Data;
 
+if (args.Contains("--print-metrics"))
+{
+    MetricsDocs.Write(Console.Out);
+    return;
+}
+
 var options = ExporterOptions.FromEnvironment();
 
 var builder = WebApplication.CreateBuilder(args);

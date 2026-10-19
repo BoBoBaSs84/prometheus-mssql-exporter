@@ -67,7 +67,7 @@ public sealed class EndpointsTests
         StringAssert.StartsWith(response.Content.Headers.ContentType?.ToString(), "text/plain");
         StringAssert.Matches(text, new System.Text.RegularExpressions.Regex("^mssql_up 1$", System.Text.RegularExpressions.RegexOptions.Multiline));
         StringAssert.Contains(text, "mssql_scrape_duration_seconds ");
-        StringAssert.Contains(text, "process_");
+        StringAssert.Contains(text, "process_cpu_seconds_total");
         Assert.AreEqual(1, runner.Disposed);
         var connection = new SqlConnectionStringBuilder(runner.ConnectionStrings.Single());
         Assert.AreEqual("db,1433", connection.DataSource);
@@ -82,7 +82,7 @@ public sealed class EndpointsTests
         var text = await client.GetStringAsync("/metrics");
 
         StringAssert.Contains(text, "mssql_up 1");
-        Assert.DoesNotContain("process_", text);
+        Assert.DoesNotContain("process_cpu_seconds_total", text);
     }
 
     [TestMethod]
@@ -185,7 +185,7 @@ public sealed class EndpointsTests
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         Assert.AreEqual("other-host,1444", new SqlConnectionStringBuilder(runner.ConnectionStrings.Single()).DataSource);
         StringAssert.Contains(text, "mssql_up 1");
-        Assert.DoesNotContain("process_", text);
+        Assert.DoesNotContain("process_cpu_seconds_total", text);
     }
 
     [TestMethod]
