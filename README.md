@@ -1,13 +1,13 @@
 # Prometheus MSSQL Exporter Docker Container
 
-[![Node.js CI](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/actions/workflows/node.js.yml/badge.svg)](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/actions/workflows/node.js.yml)
+[![.NET CI](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/actions/workflows/dotnet.yml/badge.svg)](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/actions/workflows/dotnet.yml)
 [![Build and Publish](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/actions/workflows/publish.yml/badge.svg)](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/actions/workflows/publish.yml)
 [![CodeQL](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/actions/workflows/github-code-scanning/codeql)
 [![Dependabot Updates](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/actions/workflows/dependabot/dependabot-updates)
 [![Container image](https://img.shields.io/badge/ghcr.io-prometheus--mssql--exporter-2496ED?logo=docker&logoColor=white)](https://github.com/BoBoBaSs84/prometheus-mssql-exporter/pkgs/container/prometheus-mssql-exporter)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Prometheus exporter for Microsoft SQL Server (MSSQL). A single Node.js process that, on each scrape of `/metrics`, opens a connection, runs each collector's query, and exposes the results as Prometheus gauges. Collectors live in `src/collectors/` and each only _describes_ its gauges and SQL, so the same set can also be run per-target through the `/probe` endpoint.
+Prometheus exporter for Microsoft SQL Server (MSSQL). A single .NET 10 process that, on each scrape of `/metrics`, opens a connection, runs each collector's query, and exposes the results as Prometheus gauges. Collectors live in `src/MssqlExporter/Collectors/` and each only _describes_ its gauges and SQL, so the same set can also be run per-target through the `/probe` endpoint.
 
 > Tested against the MSSQL **2019**, **2022** and **2025** Docker images from Microsoft. Other versions likely work but are not covered by CI.
 
@@ -15,7 +15,7 @@ The image is published for `linux/amd64` and `linux/arm64`.
 
 ## Exposed metrics
 
-Run `npm run metrics` for the authoritative list — every metric with the exact SQL that produces it (useful for DBA review). 89 `mssql_*` families come from the collectors, plus 3 scrape-quality metrics, by area:
+Run `dotnet run --project src/MssqlExporter -- --print-metrics` (or `docker run --rm ghcr.io/bobobass84/prometheus-mssql-exporter --print-metrics`) for the authoritative list — every metric with the exact SQL that produces it (useful for DBA review). 89 `mssql_*` families come from the collectors, plus 3 scrape-quality metrics, by area:
 
 - **Instance** — `mssql_up`, `mssql_product_version`, `mssql_instance_local_time`
 - **Connections & sessions** — `mssql_connections{database,state}`, `mssql_client_connections{client,database}`, `mssql_active_sessions{status}`, `mssql_active_requests`
@@ -33,7 +33,7 @@ Run `npm run metrics` for the authoritative list — every metric with the exact
 - **SQL Agent** (emitted only when Agent/jobs exist) — `mssql_agent_up`, `mssql_agent_job_enabled{job}`, `mssql_agent_job_last_run_success{job}`, `mssql_agent_job_last_run_timestamp{job}`, `mssql_agent_job_last_duration_seconds{job}`, `mssql_agent_job_running{job}`
 - **Scrape quality** — `mssql_scrape_duration_seconds`, `mssql_collector_duration_seconds{collector}`, `mssql_collector_success{collector}`
 
-Unless `COLLECT_DEFAULT_METRICS=false`, the standard `prom-client` process/Node.js metrics (`process_*`, `nodejs_*`) are also exposed on `/metrics` (never on `/probe`).
+Unless `COLLECT_DEFAULT_METRICS=false`, the standard .NET runtime and process metrics (`process_*`, `dotnet_*`) are also exposed on `/metrics` (never on `/probe`).
 
 > Existing metrics keep their historical `_kb` units; metrics added in 2.1.0 use Prometheus base units (`_bytes`, `_seconds`) and the `_total` suffix for cumulative counters.
 
@@ -42,7 +42,7 @@ Please feel free to submit other interesting metrics to include.
 ## Usage
 
 ```shell
-docker run -e SERVER=192.168.56.101 -e USERNAME=SA -e PASSWORD=qkD4x3yy -e DEBUG=app \
+docker run -e MSSQL_SERVER=192.168.56.101 -e MSSQL_USER=SA -e MSSQL_PASSWORD=qkD4x3yy -e Logging__LogLevel__App=Debug \
   -p 4000:4000 --name prometheus-mssql-exporter ghcr.io/bobobass84/prometheus-mssql-exporter
 ```
 
@@ -52,20 +52,22 @@ The container exposes port 4000. Endpoints: `/metrics` (the configured instance;
 
 All configuration is via environment variables:
 
-| Variable                   | Required | Default | Description                                                                                                                                                            |
-| -------------------------- | -------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SERVER`                   | yes      | —       | Server IP or DNS name                                                                                                                                                  |
-| `USERNAME`                 | yes      | —       | Login used to connect                                                                                                                                                  |
-| `PASSWORD`                 | yes      | —       | Login password                                                                                                                                                         |
-| `PORT`                     | no       | `1433`  | SQL Server TCP port                                                                                                                                                    |
-| `ENCRYPT`                  | no       | `true`  | [`encrypt`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.data.sqlclient.sqlconnectionstringbuilder.encrypt) connection setting                               |
-| `TRUST_SERVER_CERTIFICATE` | no       | `true`  | [`trustServerCertificate`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.data.sqlclient.sqlconnectionstringbuilder.trustservercertificate) connection setting |
-| `EXPOSE`                   | no       | `4000`  | Port the exporter's web server listens on                                                                                                                              |
-| `COLLECT_DEFAULT_METRICS`  | no       | `true`  | Also expose `prom-client` default process/Node.js metrics                                                                                                              |
-| `CONNECT_TIMEOUT_MS`       | no       | `15000` | Connection timeout                                                                                                                                                     |
-| `QUERY_TIMEOUT_MS`         | no       | `30000` | Per-collector query timeout — a slow collector is abandoned and skipped, the rest of the scrape still returns                                                          |
-| `PROBE_ENABLED`            | no       | `true`  | Serve the `/probe` multi-target endpoint                                                                                                                               |
-| `DEBUG`                    | no       | —       | Comma-delimited log channels: `app`, `db`, `metrics`                                                                                                                   |
+| Variable                        | Required | Default       | Description                                                                                                                                                            |
+| ------------------------------- | -------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MSSQL_SERVER`                  | yes      | —             | Server IP or DNS name                                                                                                                                                  |
+| `MSSQL_USER`                    | yes      | —             | Login used to connect                                                                                                                                                  |
+| `MSSQL_PASSWORD`                | yes      | —             | Login password                                                                                                                                                         |
+| `MSSQL_PORT`                    | no       | `1433`        | SQL Server TCP port                                                                                                                                                    |
+| `ENCRYPT`                       | no       | `true`        | [`Encrypt`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.data.sqlclient.sqlconnectionstringbuilder.encrypt) connection setting                               |
+| `TRUST_SERVER_CERTIFICATE`      | no       | `true`        | [`TrustServerCertificate`](https://learn.microsoft.com/en-us/dotnet/api/microsoft.data.sqlclient.sqlconnectionstringbuilder.trustservercertificate) connection setting |
+| `EXPOSE`                        | no       | `4000`        | Port the exporter's web server listens on                                                                                                                              |
+| `COLLECT_DEFAULT_METRICS`       | no       | `true`        | Also expose the .NET runtime/process metrics                                                                                                                           |
+| `CONNECT_TIMEOUT_MS`            | no       | `15000`       | Connection timeout, rounded up to whole seconds                                                                                                                        |
+| `QUERY_TIMEOUT_MS`              | no       | `30000`       | Per-collector query timeout, rounded up to whole seconds — a slow collector is abandoned and skipped, the rest of the scrape still returns                             |
+| `PROBE_ENABLED`                 | no       | `true`        | Serve the `/probe` multi-target endpoint                                                                                                                               |
+| `Logging__LogLevel__<Category>` | no       | `Information` | Standard ASP.NET Core log level per category: `App`, `Db`, `Metrics` (e.g. `Logging__LogLevel__App=Debug`)                                                             |
+
+> The generic `USERNAME` and `PASSWORD` variables were replaced by `MSSQL_USER` / `MSSQL_PASSWORD` (and `SERVER`/`PORT` by `MSSQL_SERVER`/`MSSQL_PORT`): Windows always defines `USERNAME`, which would silently authenticate as the wrong user. The old names are no longer read.
 
 ### Required permissions
 
@@ -88,7 +90,7 @@ GRANT EXECUTE ON [dbo].[agent_datetime] TO [exporter];
 
 Collectors whose permissions are missing simply fail and are skipped (`mssql_collector_success{collector="..."} 0`); the rest of the scrape is unaffected.
 
-The same statements live in [`test/e2e/sql/exporter-permissions.sql`](test/e2e/sql/exporter-permissions.sql) (with `__LOGIN__` / `__PASSWORD__` placeholders). The e2e suite provisions that exact login and asserts it loses no collector against `sa`, so this list is verified on every CI run.
+The same statements live in [`tests/MssqlExporter.E2E.Tests/Sql/exporter-permissions.sql`](tests/MssqlExporter.E2E.Tests/Sql/exporter-permissions.sql) (with `__LOGIN__` / `__PASSWORD__` placeholders). The e2e suite provisions that exact login and asserts it loses no collector against `sa`, so this list is verified on every CI run.
 
 ### docker compose
 
@@ -99,10 +101,10 @@ services:
     ports:
       - "4000:4000"
     environment:
-      SERVER: mssql
-      USERNAME: SA
-      PASSWORD: ${SA_PASSWORD}
-      DEBUG: app
+      MSSQL_SERVER: mssql
+      MSSQL_USER: SA
+      MSSQL_PASSWORD: ${SA_PASSWORD}
+      Logging__LogLevel__App: Debug
 ```
 
 ### Prometheus scrape config
@@ -118,7 +120,7 @@ scrape_configs:
 
 `GET /probe?target=host[:port]` connects to `host` using the exporter's configured credentials
 and returns that instance's metrics on an isolated registry (concurrent probes for different
-targets do not interfere). `SERVER`/`PORT` still have to be set for startup — point them at any
+targets do not interfere). `MSSQL_SERVER`/`MSSQL_PORT` still have to be set for startup — point them at any
 one reachable instance, or a dummy. Set `PROBE_ENABLED=false` to disable the endpoint.
 
 ```yaml
@@ -145,7 +147,7 @@ Otherwise run one exporter per instance, each on its own forwarded port (`-p 400
 
 ### Unable to connect to database
 
-Named instances assign the TCP port dynamically by default; either configure a [static port](https://learn.microsoft.com/en-US/sql/database-engine/configure-windows/configure-a-server-to-listen-on-a-specific-tcp-port) and pass it via `PORT`, or enable the SQL Server Browser.
+Named instances assign the TCP port dynamically by default; either configure a [static port](https://learn.microsoft.com/en-US/sql/database-engine/configure-windows/configure-a-server-to-listen-on-a-specific-tcp-port) and pass it via `MSSQL_PORT`, or enable the SQL Server Browser.
 
 ### Running multiple instances of the exporter
 
@@ -163,28 +165,29 @@ If you maintain a dashboard and want it listed here, open a PR.
 
 ## Development
 
-Requires Node.js **>= 20.12** and (for the e2e suite and local SQL Server) a container runtime — Docker or Podman.
+Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download) and (for the e2e suite and a local SQL Server) a container runtime — Docker or Podman.
 
 ```shell
-npm ci
+dotnet restore MssqlExporter.slnx
+dotnet build MssqlExporter.slnx
 ```
 
 ### Run a local SQL Server
 
 ```shell
-export MSSQL_SA_PASSWORD='Str0ng_Passw0rd!'
-npm run test:mssql:2022   # also test:mssql:2019 / test:mssql:2025
+docker run --rm -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD='Str0ng_Passw0rd!' -p 1433:1433 \
+  mcr.microsoft.com/mssql/server:2022-latest   # also 2019-latest / 2025-latest
 ```
 
 Add `-v /<mypath>:/var/opt/mssql/data` for persistent storage.
 
 ### Run the exporter
 
-Copy `.env.example` to `.env`, adjust it, then:
+Set the required variables (see `.env.example`), then:
 
 ```shell
-npm start        # loads .env automatically
-npm run dev      # same, with --watch
+export MSSQL_SERVER=localhost MSSQL_USER=SA MSSQL_PASSWORD='Str0ng_Passw0rd!'
+dotnet run --project src/MssqlExporter
 ```
 
 Fetch metrics:
@@ -196,33 +199,34 @@ curl http://localhost:4000/metrics
 ### List all metrics and their queries
 
 ```shell
-npm run metrics
+dotnet run --project src/MssqlExporter -- --print-metrics
 ```
 
 ## Testing
 
-- `npm test` / `npm run test:unit` — fast unit tests (collectors, config, server with a stubbed DB). No setup required.
-- `npm run test:e2e` — boots a real SQL Server in a throwaway container via [Testcontainers](https://node.testcontainers.org/), scrapes it in-process, and asserts every declared metric family is produced. Requires a container runtime (Docker or Podman); automatically skipped when none is reachable. Override the image with `MSSQL_IMAGE=mcr.microsoft.com/mssql/server:2019-latest`.
+- `dotnet test tests/MssqlExporter.Tests` — fast unit tests (collectors, config, endpoints with a stubbed DB). No setup required.
+- `dotnet test tests/MssqlExporter.E2E.Tests` — boots a real SQL Server in a throwaway container via [Testcontainers](https://dotnet.testcontainers.org/), scrapes it in-process, and asserts every declared metric family is produced. Requires a container runtime (Docker or Podman); automatically skipped when none is reachable. Override the image with `MSSQL_IMAGE=mcr.microsoft.com/mssql/server:2019-latest`.
 
   The container runs with `MSSQL_AGENT_ENABLED=true` and the suite provisions the documented least-privilege login plus a SQL Agent job, so the scrape is also performed as `exporter` — any grant missing from [Required permissions](#required-permissions) shows up as a failing collector. A second login without `GRANT EXECUTE ON [dbo].[agent_datetime]` guards that particular grant against regressing.
 
-- `npm run coverage` — unit tests with a V8 coverage report.
-- `npm run lint` / `npm run format` — ESLint / Prettier.
+- `dotnet format MssqlExporter.slnx` — code formatting (CI runs it with `--verify-no-changes`).
 
-CI runs the unit tests on Node 20/22/24 and the e2e suite against MSSQL 2019, 2022 and 2025.
+CI runs the format check and unit tests, and the e2e suite against MSSQL 2019, 2022 and 2025.
 
 ### Running the e2e suite with Podman
 
+Testcontainers for .NET needs a reachable Docker-compatible API. With the Podman machine running, expose it on a named pipe or TCP endpoint, then:
+
 ```shell
-export DOCKER_HOST='npipe:////./pipe/podman-machine-default'   # Windows; use the unix socket on Linux/macOS
+export DOCKER_HOST='npipe://./pipe/podman-machine-default'   # or tcp://127.0.0.1:2375; the unix socket on Linux/macOS
 export TESTCONTAINERS_RYUK_DISABLED=true
-npm run test:e2e
+dotnet test tests/MssqlExporter.E2E.Tests
 ```
 
 ## Building and publishing the image
 
 ```shell
-npm run docker:build
+docker build -t ghcr.io/bobobass84/prometheus-mssql-exporter .
 # multi-arch build (as CI does on a published release)
 docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/bobobass84/prometheus-mssql-exporter .
 ```

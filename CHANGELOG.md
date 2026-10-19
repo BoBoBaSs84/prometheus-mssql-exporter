@@ -1,5 +1,23 @@
 # Changelog
 
+## 3.0.0
+
+The exporter is rewritten in C# on .NET 10. Metric names, help text, label names and the SQL are unchanged: a Prometheus server cannot tell the two exporters apart, apart from the runtime metrics and the breaking changes below.
+
+### Breaking changes
+
+- **Environment variables renamed:** `SERVER`, `USERNAME`, `PASSWORD` and `PORT` are now `MSSQL_SERVER`, `MSSQL_USER`, `MSSQL_PASSWORD` and `MSSQL_PORT`. The old names are no longer read — Windows always defines `USERNAME`, which would silently authenticate as the wrong user. All other variables keep their names and defaults.
+- **`DEBUG` channels replaced by ASP.NET Core log levels:** use `Logging__LogLevel__App=Debug` (categories `App`, `Db`, `Metrics`).
+- **Runtime metrics renamed:** `nodejs_*` is now `dotnet_*` (`process_*` stays). Dashboards built on Node.js runtime metrics need updating; no `mssql_*` family is affected.
+- **Timeouts are whole seconds:** `CONNECT_TIMEOUT_MS` and `QUERY_TIMEOUT_MS` are rounded up to the next second.
+
+### Changed
+
+- `/metrics` builds a fresh registry on every scrape, so a dropped database or job no longer keeps exporting its last value until restart.
+- A client disconnect now cancels the running scrape.
+- SQL NULL no longer becomes `0` silently: an unset value leaves the series absent, except where a collector defines an explicit default (backups report `-1` / `0`). NULL label values still render as `"null"`.
+- Image based on `dotnet/aspnet:10.0-alpine`; `npm` scripts are replaced by `dotnet` commands, and `dotnet run --project src/MssqlExporter -- --print-metrics` replaces `npm run metrics`.
+
 ## 2.1.2
 
 ### What's Changed

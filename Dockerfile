@@ -1,11 +1,14 @@
 # syntax=docker/dockerfile:1
 
-FROM node:26-alpine AS deps
-WORKDIR /usr/src/app
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
+WORKDIR /src
+COPY Directory.Build.props Directory.Packages.props ./
+COPY src/MssqlExporter/MssqlExporter.csproj src/MssqlExporter/
+RUN dotnet restore src/MssqlExporter/MssqlExporter.csproj
+COPY src ./src
+RUN dotnet publish src/MssqlExporter/MssqlExporter.csproj -c Release --no-restore -o /app
 
-FROM node:26-alpine AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 
 ARG VERSION=dev
 ARG REVISION=unknown
@@ -17,17 +20,18 @@ LABEL org.opencontainers.image.title="prometheus-mssql-exporter" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"
 
-ENV NODE_ENV=production
-WORKDIR /usr/src/app
+# Microsoft.Data.SqlClient does not support .NET's globalization invariant mode, which the Alpine image enables.
+RUN apk add --no-cache icu-libs
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
+    DOTNET_gcServer=0
 
-COPY --from=deps /usr/src/app/node_modules ./node_modules
-COPY package.json ./
-COPY src ./src
+WORKDIR /app
+COPY --from=build /app ./
 
-USER node
+USER $APP_UID
 EXPOSE 4000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD node -e "fetch('http://localhost:'+(process.env.EXPOSE||4000)+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD wget -q -O /dev/null "http://localhost:${EXPOSE:-4000}/healthz" || exit 1
 
-CMD ["node", "src/index.js"]
+ENTRYPOINT ["dotnet", "MssqlExporter.dll"]

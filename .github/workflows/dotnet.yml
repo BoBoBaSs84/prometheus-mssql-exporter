@@ -1,24 +1,19 @@
-# C# port: format check + unit tests on every push/PR, plus a Testcontainers-driven e2e matrix
-# across the supported SQL Server versions. Runs next to the Node.js workflow until the cut-over.
+# Format check + unit tests on every push/PR, plus a Testcontainers-driven e2e matrix
+# across the supported SQL Server versions.
 
 name: .NET CI
 
 on:
   push:
     branches: ["master"]
-    paths: ["dotnet/**", "test/e2e/sql/**", ".github/workflows/dotnet.yml"]
   pull_request:
     branches: ["master"]
-    paths: ["dotnet/**", "test/e2e/sql/**", ".github/workflows/dotnet.yml"]
 
 jobs:
   format-unit:
     permissions:
       contents: read
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: dotnet
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v5
@@ -42,9 +37,6 @@ jobs:
           - mcr.microsoft.com/mssql/server:2019-latest
           - mcr.microsoft.com/mssql/server:2022-latest
           - mcr.microsoft.com/mssql/server:2025-latest
-    defaults:
-      run:
-        working-directory: dotnet
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v5
@@ -62,4 +54,4 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Build image
-        run: docker build -t prometheus-mssql-exporter:ci dotnet
+        run: docker build -t prometheus-mssql-exporter:ci .
