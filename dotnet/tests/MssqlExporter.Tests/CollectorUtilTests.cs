@@ -35,4 +35,20 @@ public sealed class CollectorUtilTests
     [DataRow("16.0.4225.1")]
     public void AsDoubleRejectsNonNumericStrings(string text) =>
         Assert.ThrowsExactly<InvalidCastException>(() => CollectorUtil.AsDouble(text));
+
+    [TestMethod]
+    public void ByNameTrimsNamesAndConvertsValues()
+    {
+        var map = CollectorUtil.ByName([["Page Splits/sec   ", 9L], ["  Full Scans/sec", "21"]]);
+        Assert.AreEqual(9d, map["Page Splits/sec"]);
+        Assert.AreEqual(21d, map["Full Scans/sec"]);
+    }
+
+    [TestMethod]
+    [DataRow(990, 1000, 99)]
+    [DataRow(45, 50, 90)]
+    [DataRow(5, 0, 0)]
+    [DataRow(0, 0, 0)]
+    public void RatioPercentIsZeroWhenBaseIsZero(double value, double @base, double expected) =>
+        Assert.AreEqual(expected, CollectorUtil.RatioPercent(value, @base), 1e-9);
 }
