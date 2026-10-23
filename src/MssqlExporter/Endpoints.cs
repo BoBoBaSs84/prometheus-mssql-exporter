@@ -80,7 +80,7 @@ public static partial class Endpoints
 
         try
         {
-            log.LogDebug("Received /probe request for {Target}", target);
+            log.LogDebug("Received /probe request for {Target}", SanitizeForLog(target));
             await scraper.ScrapeAsync(options.BuildConnectionString(host, port), entries, meta, options.QueryTimeoutMs, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
