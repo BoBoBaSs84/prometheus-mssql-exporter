@@ -10,6 +10,9 @@ public static partial class Endpoints
     [GeneratedRegex(@"^[A-Za-z0-9._-]+(?::\d{1,5})?$")]
     private static partial Regex TargetPattern();
 
+    private static string SanitizeForLog(string value) =>
+        string.IsNullOrEmpty(value) ? string.Empty : value.Replace("\r", string.Empty).Replace("\n", string.Empty);
+
     public static void MapExporterEndpoints(this IEndpointRouteBuilder app)
     {
         var options = app.ServiceProvider.GetRequiredService<ExporterOptions>();
@@ -86,7 +89,7 @@ public static partial class Endpoints
         }
         catch (Exception ex)
         {
-            log.LogError("Failed to probe {Target}: {Message}", target, ex.Message);
+            log.LogError("Failed to probe {Target}: {Message}", SanitizeForLog(target), ex.Message);
             entries.Single(e => e.Name == "mssql_up").Gauges.Set("mssql_up", 0);
             context.Response.Headers["X-Error"] = SanitizeHeader(ex.Message);
         }
