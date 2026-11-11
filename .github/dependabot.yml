@@ -1,4 +1,10 @@
+# Dependabot configuration.
+# Version updates run weekly and are grouped per package family. Major bumps
+# get their own PR, except for Microsoft.* packages, the .NET SDK and Docker
+# images, where major bumps are ignored and must be upgraded manually.
+# Security updates are not affected by the schedule and arrive right away.
 version: 2
+
 updates:
   - package-ecosystem: "nuget"
     directory: "/"
@@ -6,16 +12,27 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "03:00"
-    assignees:
-      - "BoBoBaSs84"
+      timezone: "Europe/Berlin"
+    open-pull-requests-limit: 10
+    assignees: ["BoBoBaSs84"]
+    labels: ["dependencies", "nuget"]
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "Microsoft.Data.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "System.*"
+        update-types: ["version-update:semver-major"]
     groups:
-      # The ASP.NET Core test host, runtime packages and shared framework
-      # components ship from the same release train.
-      dotnet-runtime:
-        patterns:
-          - "Microsoft.AspNetCore.*"
-          - "Microsoft.Extensions.*"
-          - "System.*"
+      microsoft:
+        patterns: ["Microsoft.Data.*"]
+        update-types: ["minor", "patch"]
+      system:
+        patterns: ["System.*"]
+        update-types: ["minor", "patch"]
+      testing:
+        patterns: ["Microsoft.AspNetCore.Mvc.Testing", "Testcontainers.MsSql"]
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -23,8 +40,30 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "03:00"
-    assignees:
-      - "BoBoBaSs84"
+      timezone: "Europe/Berlin"
+    assignees: ["BoBoBaSs84"]
+    labels: ["dependencies", "github-actions"]
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "dotnet-sdk"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "Europe/Berlin"
+    assignees: ["BoBoBaSs84"]
+    labels: ["dependencies", "dotnet-sdk"]
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "docker"
     directory: "/"
@@ -32,5 +71,11 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "03:00"
-    assignees:
-      - "BoBoBaSs84"
+      timezone: "Europe/Berlin"
+    assignees: ["BoBoBaSs84"]
+    labels: ["dependencies", "docker"]
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
